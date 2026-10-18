@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from backend.app.models import (
     Alert,
+    DetectedSoundEvent,
     MatchResult,
     TranscriptEvent,
     WatchItem,
@@ -15,13 +16,22 @@ from backend.app.models import (
 def test_watch_item_trims_whitespace() -> None:
     item = WatchItem(text="  Flight 312 to Buffalo  ")
 
-    assert item.model_dump() == {"text": "Flight 312 to Buffalo"}
+    assert item.model_dump() == {
+        "text": "Flight 312 to Buffalo",
+        "preset_sounds": [],
+    }
 
 
 @pytest.mark.parametrize("text", ["", "   "])
 def test_watch_item_rejects_empty_text(text: str) -> None:
     with pytest.raises(ValidationError):
         WatchItem(text=text)
+
+
+def test_watch_item_can_use_presets_without_free_text() -> None:
+    item = WatchItem(text="", preset_sounds=["doorbell", "siren"])
+
+    assert item.preset_sounds == ["doorbell", "siren"]
 
 
 def test_transcript_event_accepts_valid_time_range() -> None:
@@ -54,6 +64,14 @@ def test_match_requires_event_type_title_and_detail() -> None:
 def test_confidence_must_be_between_zero_and_one() -> None:
     with pytest.raises(ValidationError):
         MatchResult(match=False, confidence=1.01)
+
+
+def test_detected_sound_event_validates_confidence() -> None:
+    event = DetectedSoundEvent(label="doorbell", confidence=0.91)
+
+    assert event.source == "apple_sound_analysis"
+    with pytest.raises(ValidationError):
+        DetectedSoundEvent(label="doorbell", confidence=1.01)
 
 
 def test_alert_serializes_to_stable_json_shape() -> None:

@@ -48,7 +48,7 @@
       .wide { grid-column: 1 / -1; }
 
       label { display: block; margin-bottom: 8px; color: #b8c8de; font-size: 0.9rem; }
-      input, textarea {
+      input, textarea, select {
         width: 100%;
         border: 1px solid #31506f;
         border-radius: 11px;
@@ -58,7 +58,7 @@
         font: inherit;
         outline: none;
       }
-      input:focus, textarea:focus { border-color: #60d7ba; box-shadow: 0 0 0 3px #60d7ba22; }
+      input:focus, textarea:focus, select:focus { border-color: #60d7ba; box-shadow: 0 0 0 3px #60d7ba22; }
       textarea { min-height: 105px; resize: vertical; }
       button {
         margin-top: 12px;
@@ -84,6 +84,10 @@
       .log { display: grid; gap: 9px; max-height: 260px; overflow: auto; }
       .log-item { padding: 12px; border-left: 3px solid #63dfbd; background: #071421; border-radius: 4px 10px 10px 4px; }
       .error { color: #ff9ea4; }
+      .preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .preset-option { display: flex; align-items: center; gap: 9px; margin: 0; padding: 10px; border: 1px solid #29445f; border-radius: 10px; background: #071421; cursor: pointer; }
+      .preset-option input { width: auto; margin: 0; accent-color: #63dfbd; }
+      .preset-option span { color: #dbe8f8; }
 
       @media (max-width: 720px) {
         header { display: block; }
@@ -107,8 +111,10 @@
       <section class="grid">
         <form id="watch-form" class="card">
           <h2>1 · What are you waiting for?</h2>
-          <label for="watch-item">Watch Item</label>
-          <input id="watch-item" required maxlength="500" value="My coffee order number 47">
+          <label for="watch-item">Describe it in your own words</label>
+          <input id="watch-item" maxlength="500" value="My coffee order number 47" placeholder="For example: Someone calling Dana">
+          <label style="margin-top: 14px">Or choose common Apple-detectable sounds</label>
+          <div id="sound-presets" class="preset-grid"><span class="muted">Loading presets...</span></div>
           <button type="submit">Save Watch Item</button>
         </form>
 
@@ -119,12 +125,35 @@
           <button type="submit">Evaluate Transcript</button>
         </form>
 
+        <form id="sound-form" class="card">
+          <h2>3 &middot; Simulate a detected sound</h2>
+          <label for="sound-label">Classifier label</label>
+          <select id="sound-label">
+            <option value="doorbell">Doorbell</option>
+            <option value="siren">Siren</option>
+            <option value="fire_alarm">Fire alarm</option>
+            <option value="smoke_alarm">Smoke alarm</option>
+            <option value="door_knock">Door knock</option>
+            <option value="dog_bark">Dog barking</option>
+            <option value="baby_crying">Baby crying</option>
+            <option value="car_horn">Car horn</option>
+          </select>
+          <label for="sound-confidence" style="margin-top: 12px">Confidence</label>
+          <input id="sound-confidence" type="number" min="0" max="1" step="0.01" value="0.90" required>
+          <button type="submit">Report Sound Event</button>
+        </form>
+
         <section class="card">
-          <h2>3 · Try live transcription</h2>
+          <h2>4 &middot; Try live transcription</h2>
           <p>Stream microphone audio to Deepgram. Allow microphone access when prompted.</p>
           <button id="mic-button" type="button">Start listening</button>
           <p id="mic-status" class="muted">Microphone is off.</p>
           <p id="live-transcript" class="value"></p>
+        </section>
+
+        <section class="card wide">
+          <h2>Gemini listening plan</h2>
+          <div id="intent-plan" class="value muted">Save a Watch Item to extract its speech and sound targets.</div>
         </section>
 
         <section class="card wide">
@@ -148,6 +177,7 @@
       const byId = (id) => document.getElementById(id);
       const watchForm = byId("watch-form");
       const transcriptForm = byId("transcript-form");
+      const soundForm = byId("sound-form");
       const socketStatus = byId("socket-status");
       const alertLog = byId("alert-log");
       const micButton = byId("mic-button");
@@ -184,13 +214,62 @@
         catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
       }
 
+      async function refreshIntent() {
+        try {
+          const { intent } = await request("/watch-item/intent");
+          if (!intent) {
+            byId("intent-plan").textContent = "No Watch Item is configured.";
+            return;
+          }
+          const speech = intent.speech_targets.map((target) => `${target.kind}: ${target.terms.join(", ")}`).join(" | ") || "None";
+          const sounds = intent.sound_targets.map((target) => target.label).join(", ") || "None";
+          byId("intent-plan").textContent = `Speech: ${speech}  |  Environmental sounds: ${sounds}`;
+          byId("intent-plan").className = "value";
+        } catch (error) {
+          byId("intent-plan").textContent = error.message;
+          byId("intent-plan").className = "error";
+        }
+      }
+
+      async function loadSoundPresets() {
+        const container = byId("sound-presets");
+        try {
+          const { presets } = await request("/sound-presets");
+          container.replaceChildren();
+          for (const preset of presets) {
+            const option = document.createElement("label");
+            option.className = "preset-option";
+            option.title = `${preset.description} Apple labels: ${preset.apple_classifications.join(", ")}`;
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.name = "preset-sound";
+            checkbox.value = preset.id;
+            const title = document.createElement("span");
+            title.textContent = preset.title;
+            option.append(checkbox, title);
+            container.append(option);
+          }
+        } catch (error) {
+          container.textContent = error.message;
+          container.className = "error";
+        }
+      }
+
       watchForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const button = watchForm.querySelector("button");
         button.disabled = true;
         try {
-          await request("/watch-item", { method: "POST", body: JSON.stringify({ text: byId("watch-item").value }) });
+          const presetSounds = [...document.querySelectorAll('input[name="preset-sound"]:checked')].map((input) => input.value);
+          await request("/watch-item", {
+            method: "POST",
+            body: JSON.stringify({
+              text: byId("watch-item").value,
+              preset_sounds: presetSounds,
+            }),
+          });
           await refreshState();
+          await refreshIntent();
         } catch (error) { byId("reason").textContent = error.message; }
         finally { button.disabled = false; }
       });
@@ -202,6 +281,24 @@
         try {
           const result = await request("/debug/transcript", { method: "POST", body: JSON.stringify({ text: byId("transcript").value }) });
           renderState({ watch_item: result.watch_item, transcript: result.transcript, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
+        } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
+        finally { button.disabled = false; }
+      });
+
+      soundForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = soundForm.querySelector("button");
+        button.disabled = true;
+        try {
+          const result = await request("/events/sound", {
+            method: "POST",
+            body: JSON.stringify({
+              label: byId("sound-label").value,
+              confidence: Number(byId("sound-confidence").value),
+              source: "dashboard_simulator",
+            }),
+          });
+          renderState({ watch_item: result.watch_item, sound_event: result.sound_event, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
         } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
         finally { button.disabled = false; }
       });
@@ -269,7 +366,11 @@
             micStatus.textContent = "Listening… speak an announcement.";
           } else if (message.type === "transcript") {
             liveTranscript.textContent = message.text;
-            micStatus.textContent = "Listening… transcript evaluated.";
+            micStatus.textContent = message.final
+              ? "Listening… transcript finalized and evaluated."
+              : message.stable
+                ? "Listening… stable speech evaluated."
+                : "Listening… transcribing speech.";
           } else if (message.type === "error") {
             session.errorDetail = message.detail;
             micStatus.textContent = message.detail;
@@ -326,6 +427,7 @@
       }
 
       refreshState();
+      loadSoundPresets().then(refreshIntent);
       connectAlerts();
     </script>
   </body>

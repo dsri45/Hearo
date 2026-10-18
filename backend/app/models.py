@@ -31,10 +31,30 @@ class HapticType(str, Enum):
     URGENT = "urgent"
 
 
-class WatchItem(ContractModel):
-    """Free-text description of the event the user is waiting for."""
+class SoundPresetID(str, Enum):
+    """Curated Hearo presets backed by Apple Sound Analysis labels."""
 
-    text: str = Field(min_length=1, max_length=500)
+    DOORBELL = "doorbell"
+    SIREN = "siren"
+    FIRE_ALARM = "fire_alarm"
+    SMOKE_ALARM = "smoke_alarm"
+    DOOR_KNOCK = "door_knock"
+    DOG_BARK = "dog_bark"
+    BABY_CRYING = "baby_crying"
+    CAR_HORN = "car_horn"
+
+
+class WatchItem(ContractModel):
+    """Free text and optional prebuilt sounds selected by the user."""
+
+    text: str = Field(default="", max_length=500)
+    preset_sounds: list[SoundPresetID] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def require_text_or_preset(self) -> "WatchItem":
+        if not self.text and not self.preset_sounds:
+            raise ValueError("provide text or select at least one sound preset")
+        return self
 
 
 class ExtractedWatchTerms(ContractModel):
@@ -42,6 +62,49 @@ class ExtractedWatchTerms(ContractModel):
 
     identifiers: list[str]
     keywords: list[str]
+
+
+class IntentIdentifier(ContractModel):
+    """An identifier and equivalent spoken forms extracted from a Watch Item."""
+
+    value: str = Field(min_length=1, max_length=100)
+    aliases: list[str] = Field(default_factory=list, max_length=20)
+    required: bool = True
+
+
+class SpeechTarget(ContractModel):
+    """A spoken phrase, name, or announcement the speech lane listens for."""
+
+    kind: str = Field(min_length=1, max_length=50)
+    terms: list[str] = Field(default_factory=list, max_length=50)
+
+
+class SoundTarget(ContractModel):
+    """An environmental sound label and equivalent classifier labels."""
+
+    label: str = Field(min_length=1, max_length=100)
+    aliases: list[str] = Field(default_factory=list, max_length=30)
+
+
+class SoundPreset(ContractModel):
+    """A user-facing preset mapped to built-in Apple classifier labels."""
+
+    id: SoundPresetID
+    title: str = Field(min_length=1, max_length=100)
+    description: str = Field(min_length=1, max_length=200)
+    apple_classifications: list[str] = Field(min_length=1, max_length=30)
+
+
+class StructuredWatchIntent(ContractModel):
+    """LLM-produced meaning used for keyterms and deterministic matching."""
+
+    subject: str = Field(min_length=1, max_length=200)
+    identifiers: list[IntentIdentifier] = Field(default_factory=list, max_length=20)
+    context_terms: list[str] = Field(default_factory=list, max_length=50)
+    interesting_events: list[str] = Field(default_factory=list, max_length=30)
+    keyterms: list[str] = Field(default_factory=list, max_length=100)
+    speech_targets: list[SpeechTarget] = Field(default_factory=list, max_length=30)
+    sound_targets: list[SoundTarget] = Field(default_factory=list, max_length=30)
 
 
 class TranscriptEvent(ContractModel):
@@ -56,6 +119,14 @@ class TranscriptEvent(ContractModel):
         if self.start is not None and self.end is not None and self.end < self.start:
             raise ValueError("end must be greater than or equal to start")
         return self
+
+
+class DetectedSoundEvent(ContractModel):
+    """A sound classification produced by an iPhone or debug simulator."""
+
+    label: str = Field(min_length=1, max_length=100)
+    confidence: float = Field(ge=0, le=1)
+    source: str = Field(default="apple_sound_analysis", min_length=1, max_length=100)
 
 
 class MatchResult(ContractModel):

@@ -48,6 +48,15 @@ def test_duplicate_is_suppressed_inside_window() -> None:
     assert deduplicator.check_and_record(repeated) is True
 
 
+def test_duplicate_suppression_is_disabled_by_default() -> None:
+    deduplicator = AlertDeduplicator()
+    first = create_alert(matching_result(), timestamp=100.0)
+    repeated = create_alert(matching_result(), timestamp=100.1)
+
+    assert deduplicator.check_and_record(first) is False
+    assert deduplicator.check_and_record(repeated) is False
+
+
 def test_event_is_allowed_after_window() -> None:
     deduplicator = AlertDeduplicator(window_seconds=60)
     first = create_alert(matching_result(), timestamp=100.0)

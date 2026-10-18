@@ -54,6 +54,12 @@ def test_set_then_get_watch_item(client: TestClient) -> None:
     assert get_response.status_code == 200
     assert get_response.json() == {"watch_item": "Flight 312 to Buffalo"}
 
+    intent_response = client.get("/watch-item/intent")
+    assert intent_response.status_code == 200
+    intent = intent_response.json()["intent"]
+    assert intent["identifiers"][0]["value"] == "312"
+    assert "flight" in intent["context_terms"]
+
 
 def test_set_watch_item_trims_text(client: TestClient) -> None:
     response = client.post("/watch-item", json={"text": "  Order number 47  "})
@@ -62,12 +68,50 @@ def test_set_watch_item_trims_text(client: TestClient) -> None:
     assert response.json()["watch_item"] == "Order number 47"
 
 
+def test_lists_apple_backed_sound_presets(client: TestClient) -> None:
+    response = client.get("/sound-presets")
+
+    assert response.status_code == 200
+    presets = {preset["id"]: preset for preset in response.json()["presets"]}
+    assert "doorbell" in presets
+    assert "doorbell" in presets["doorbell"]["apple_classifications"]
+    assert "siren" in presets
+
+
+def test_sets_watch_item_from_presets_without_free_text(client: TestClient) -> None:
+    response = client.post(
+        "/watch-item",
+        json={"text": "", "preset_sounds": ["doorbell", "siren"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["watch_item"] == "Doorbell or Siren"
+    intent = client.get("/watch-item/intent").json()["intent"]
+    assert [target["label"] for target in intent["sound_targets"]] == [
+        "doorbell",
+        "siren",
+    ]
+    assert intent["speech_targets"] == []
+
+
+def test_merges_preset_with_free_text_intent(client: TestClient) -> None:
+    response = client.post(
+        "/watch-item",
+        json={"text": "Someone calling Dana", "preset_sounds": ["doorbell"]},
+    )
+
+    assert response.status_code == 200
+    intent = client.get("/watch-item/intent").json()["intent"]
+    assert intent["sound_targets"][0]["label"] == "doorbell"
+
+
 @pytest.mark.parametrize(
     "payload",
     [
         {},
         {"text": ""},
         {"text": "   "},
+        {"text": "", "preset_sounds": ["not_an_apple_preset"]},
         {"text": "Order 47", "unexpected": True},
     ],
 )
@@ -123,7 +167,61 @@ def test_nonmatching_transcript_does_not_emit_alert(client: TestClient) -> None:
     assert body["suppressed"] is False
 
 
-def test_repeated_transcript_is_suppressed(client: TestClient) -> None:
+def test_matching_environmental_sound_emits_alert(client: TestClient) -> None:
+    client.post("/watch-item", json={"text": "Alert me when the doorbell rings"})
+
+    response = client.post(
+        "/events/sound",
+        json={"label": "door chime", "confidence": 0.91, "source": "simulator"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["match_result"]["match"] is True
+    assert body["match_result"]["event_type"] == "sound_doorbell"
+    assert body["alert"]["detail"] == "Doorbell detected"
+    assert body["sound_event"]["source"] == "simulator"
+
+
+def test_unrequested_or_uncertain_sound_does_not_alert(client: TestClient) -> None:
+    client.post("/watch-item", json={"text": "Alert me when the doorbell rings"})
+
+    wrong_sound = client.post(
+        "/events/sound",
+        json={"label": "siren", "confidence": 0.95},
+    )
+    uncertain = client.post(
+        "/events/sound",
+        json={"label": "doorbell", "confidence": 0.42},
+    )
+
+    assert wrong_sound.json()["match_result"]["match"] is False
+    assert uncertain.json()["match_result"]["match"] is False
+    assert uncertain.json()["alert"] is None
+
+
+def test_sound_event_requires_watch_item(client: TestClient) -> None:
+    response = client.post(
+        "/events/sound",
+        json={"label": "doorbell", "confidence": 0.9},
+    )
+
+    assert response.status_code == 409
+
+
+def test_repeated_sound_event_emits_each_time(client: TestClient) -> None:
+    client.post("/watch-item", json={"text": "Wait for the doorbell"})
+    payload = {"label": "doorbell", "confidence": 0.9}
+
+    first = client.post("/events/sound", json=payload)
+    repeated = client.post("/events/sound", json=payload)
+
+    assert first.json()["alert"] is not None
+    assert repeated.json()["alert"] is not None
+    assert repeated.json()["suppressed"] is False
+
+
+def test_repeated_transcript_emits_each_time(client: TestClient) -> None:
     client.post("/watch-item", json={"text": "Raffle number 82"})
     payload = {"text": "Raffle number 82 has been called."}
 
@@ -132,8 +230,8 @@ def test_repeated_transcript_is_suppressed(client: TestClient) -> None:
 
     assert first.json()["alert"] is not None
     assert first.json()["suppressed"] is False
-    assert repeated.json()["alert"] is None
-    assert repeated.json()["suppressed"] is True
+    assert repeated.json()["alert"] is not None
+    assert repeated.json()["suppressed"] is False
 
 
 def test_debug_state_reports_latest_evaluation(client: TestClient) -> None:
@@ -159,6 +257,8 @@ def test_dashboard_is_served(client: TestClient) -> None:
     assert response.status_code == 200
     assert "Hearo Debug Dashboard" in response.text
     assert "/ws/alerts" in response.text
+    assert "/events/sound" in response.text
+    assert "Gemini listening plan" in response.text
 
 
 def test_websocket_receives_emitted_alert(client: TestClient) -> None:

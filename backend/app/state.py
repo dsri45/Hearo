@@ -3,7 +3,13 @@
 from typing import Any
 
 from .alerts import DEFAULT_DEDUPE_WINDOW_SECONDS
-from .models import Alert, MatchResult, TranscriptEvent
+from .models import (
+    Alert,
+    DetectedSoundEvent,
+    MatchResult,
+    StructuredWatchIntent,
+    TranscriptEvent,
+)
 from .repositories import HearoRepository
 
 
@@ -12,6 +18,7 @@ _repository = HearoRepository()
 # These fields exist only to render the latest dashboard evaluation. Raw
 # transcripts are intentionally not written to SQLite.
 latest_transcript: TranscriptEvent | None = None
+latest_sound_event: DetectedSoundEvent | None = None
 latest_match: MatchResult | None = None
 latest_alert: Alert | None = None
 latest_suppressed: bool = False
@@ -43,6 +50,11 @@ def get_structured_intent() -> dict[str, Any] | None:
     return _repository.get_structured_intent()
 
 
+def get_watch_intent() -> StructuredWatchIntent | None:
+    stored = get_structured_intent()
+    return None if stored is None else StructuredWatchIntent.model_validate(stored)
+
+
 def is_duplicate_alert(alert: Alert) -> bool:
     """Check persisted alert history for a recent duplicate."""
 
@@ -69,8 +81,27 @@ def record_evaluation(
 ) -> None:
     """Record the latest debug-pipeline evaluation for later inspection."""
 
-    global latest_transcript, latest_match, latest_alert, latest_suppressed
+    global latest_transcript, latest_sound_event, latest_match, latest_alert
+    global latest_suppressed
     latest_transcript = transcript
+    latest_sound_event = None
+    latest_match = match
+    latest_alert = alert
+    latest_suppressed = suppressed
+
+
+def record_sound_evaluation(
+    event: DetectedSoundEvent,
+    match: MatchResult,
+    alert: Alert | None,
+    suppressed: bool,
+) -> None:
+    """Record the latest environmental-sound evaluation for the dashboard."""
+
+    global latest_transcript, latest_sound_event, latest_match, latest_alert
+    global latest_suppressed
+    latest_transcript = None
+    latest_sound_event = event
     latest_match = match
     latest_alert = alert
     latest_suppressed = suppressed
@@ -79,9 +110,11 @@ def record_evaluation(
 def reset() -> None:
     """Clear the configured repository and ephemeral state for tests."""
 
-    global latest_transcript, latest_match, latest_alert, latest_suppressed
+    global latest_transcript, latest_sound_event, latest_match, latest_alert
+    global latest_suppressed
     _repository.clear_all()
     latest_transcript = None
+    latest_sound_event = None
     latest_match = None
     latest_alert = None
     latest_suppressed = False

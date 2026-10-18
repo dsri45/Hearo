@@ -5,7 +5,7 @@ Hearo helps someone wait for a specific real-world announcement—such as a flig
 The MVP flow is:
 
 ```text
-iPhone microphone -> Python backend -> transcript matcher -> iPhone -> Apple Watch haptic
+iPhone microphone -> speech/sound detectors -> Python backend -> iPhone -> Apple Watch haptic
 ```
 
 ## Repository layout
@@ -18,7 +18,11 @@ iPhone microphone -> Python backend -> transcript matcher -> iPhone -> Apple Wat
 
 ## Current status
 
-The backend and dashboard now support live Deepgram transcription through a local microphone stream. The backend loads its key from `backend/.env`, evaluates completed utterances with the deterministic matcher, and emits deduplicated alerts. The v1 backend/iPhone/Watch message contracts and debug transcript path remain available. The iOS and Watch clients have not yet been created.
+The backend and dashboard now support live Deepgram transcription plus general environmental-sound events. Saving a Watch Item invokes Gemini 3.5 Flash-Lite to separate speech targets from sounds such as doorbells, sirens, alarms, and knocks; a deterministic local fallback remains available. Completed utterances and sound-classifier results share the same matching, WebSocket alert, and future Watch-haptic pipeline. Repeated matches emit repeated alerts. The iOS and Watch clients have not yet been created.
+
+The dashboard displays Deepgram's interim transcript while the user is speaking.
+Stable finalized chunks enter the matcher immediately while recording; unstable
+interim words remain display-only.
 
 ## Run the backend
 
@@ -43,15 +47,29 @@ The backend automatically creates a local SQLite database at
 server restarts. Database files are ignored by Git. To use a different location,
 set `HEARO_DATABASE_URL` in `backend/.env`.
 
+Gemini reads `GEMINI_API_KEY` from `backend/.env` (the legacy `LLM_API_KEY`
+name also works). Its model defaults to `gemini-3.5-flash-lite` and can be
+overridden with `GEMINI_MODEL`. Keys remain server-side and must never be
+committed.
+
 For the pre-audio integration checkpoint, set a Watch Item with
 `POST /watch-item`, then submit announcement text to `POST /debug/transcript`.
-The response includes the match decision and any emitted alert. Repeating an
-identical matching event within 60 seconds is suppressed. The latest evaluation
-is available from `GET /debug/state`.
+The response includes the match decision and any emitted alert. Every matching
+event emits an alert, including immediate repetitions. The latest evaluation is
+available from `GET /debug/state`.
 
 Open `http://localhost:8000/dashboard` for the local testing interface. It uses
 `/ws/alerts` to display emitted alerts in real time; the future iPhone client can
-consume the same canonical Alert messages.
+consume the same canonical Alert messages. The dashboard can also simulate an
+Apple Sound Analysis result. The future iPhone client reports those results to
+`POST /events/sound` as a label, confidence, and source.
+
+Users may combine free text with common sound presets such as Doorbell, Siren,
+Fire alarm, Smoke alarm, Door knock, Dog barking, Baby crying, and Car horn.
+`GET /sound-presets` exposes each preset's candidate Apple classification
+identifiers. The iOS client must compare them with
+`SNClassifySoundRequest.knownClassifications` and only display presets supported
+by the built-in classifier on that device and OS version.
 
 ## MVP order
 

@@ -1,4 +1,4 @@
-"""Alert construction and short-window duplicate suppression."""
+"""Alert construction and optional duplicate suppression."""
 
 import hashlib
 import time
@@ -6,7 +6,9 @@ import time
 from .models import Alert, AlertCategory, MatchResult
 
 
-DEFAULT_DEDUPE_WINDOW_SECONDS = 60.0
+# Repeated matches alert every time by default. A positive value can still be
+# supplied directly to AlertDeduplicator for clients that want a cooldown.
+DEFAULT_DEDUPE_WINDOW_SECONDS = 0.0
 
 
 def _event_id(result: MatchResult) -> str:
@@ -47,13 +49,16 @@ class AlertDeduplicator:
     """Suppress identical semantic events within a bounded time window."""
 
     def __init__(self, window_seconds: float = DEFAULT_DEDUPE_WINDOW_SECONDS) -> None:
-        if window_seconds <= 0:
-            raise ValueError("window_seconds must be positive")
+        if window_seconds < 0:
+            raise ValueError("window_seconds must not be negative")
         self.window_seconds = window_seconds
         self._last_seen: dict[str, float] = {}
 
     def check_and_record(self, alert: Alert) -> bool:
         """Return True when the alert is a recent duplicate, then record it."""
+
+        if self.window_seconds == 0:
+            return False
 
         cutoff = alert.timestamp - self.window_seconds
         self._last_seen = {

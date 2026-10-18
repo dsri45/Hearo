@@ -6,6 +6,12 @@ from pathlib import Path
 import pytest
 
 from backend.app.matcher import extract_watch_terms, match_transcript
+from backend.app.models import (
+    IntentIdentifier,
+    SoundTarget,
+    SpeechTarget,
+    StructuredWatchIntent,
+)
 
 
 CASES_PATH = Path(__file__).with_name("cases.json")
@@ -88,4 +94,127 @@ def test_long_non_event_mention_is_not_treated_as_direct_call() -> None:
 
     assert result.match is False
     assert result.reason == "No relevant event was announced."
+
+
+def test_structured_intent_identifier_alias_can_match() -> None:
+    intent = StructuredWatchIntent(
+        subject="coffee order",
+        identifiers=[
+            IntentIdentifier(value="47", aliases=["forty seven"], required=True)
+        ],
+        context_terms=["coffee", "order"],
+        interesting_events=["ready", "called"],
+        keyterms=["order 47", "forty seven"],
+    )
+
+    result = match_transcript(
+        "My coffee order number 47",
+        "Order forty seven!",
+        intent,
+    )
+
+    assert result.match is True
+    assert result.event_type == "called"
+
+
+def test_structured_intent_adds_custom_event_phrase() -> None:
+    intent = StructuredWatchIntent(
+        subject="visitor badge",
+        identifiers=[IntentIdentifier(value="B12", aliases=[], required=True)],
+        context_terms=["badge"],
+        interesting_events=["window opened"],
+        keyterms=["badge B12"],
+    )
+
+    result = match_transcript(
+        "Visitor badge B12",
+        "Badge B12, the collection window opened.",
+        intent,
+    )
+
+    assert result.match is True
+    assert result.event_type == "window_opened"
+
+
+def test_sound_only_intent_does_not_match_spoken_sound_label() -> None:
+    intent = StructuredWatchIntent(
+        subject="doorbell",
+        context_terms=["doorbell"],
+        interesting_events=["rings"],
+        keyterms=["doorbell"],
+        sound_targets=[SoundTarget(label="doorbell")],
+    )
+
+    result = match_transcript(
+        "Tell me when the doorbell rings",
+        "The doorbell rings",
+        intent,
+    )
+
+    assert result.match is False
+    assert result.reason == "This Watch Item only uses environmental sound detection."
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "Dana!",
+        "Calling Dana!",
+        "Paging Dana",
+        "Is Dana here?",
+        "We're looking for Dana",
+        "Dana, please come to the front desk",
+        "Can Dana come up?",
+        "Where is Dana?",
+        (
+            "The app listens for several things. Hi, is Dana here? Dana? "
+            "It can also listen for a gate change or boarding announcement."
+        ),
+    ],
+)
+def test_optional_name_call_identifier_matches_mixed_intent(transcript: str) -> None:
+    intent = StructuredWatchIntent(
+        subject="Dana being called or a doorbell",
+        identifiers=[
+            IntentIdentifier(value="Dana", aliases=["Dayna"], required=False)
+        ],
+        context_terms=["calls", "doorbell"],
+        interesting_events=["called", "rings"],
+        keyterms=["Dana", "Dayna", "doorbell"],
+        speech_targets=[SpeechTarget(kind="name_call", terms=["Dana", "Dayna"])],
+        sound_targets=[SoundTarget(label="doorbell")],
+    )
+
+    result = match_transcript(
+        "Alert me if someone calls Dana or if the doorbell rings",
+        transcript,
+        intent,
+    )
+
+    assert result.match is True
+    assert result.event_type == "called"
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "Dana is not here",
+        "I talked to Dana yesterday",
+        "The meeting about Dana is tomorrow",
+        "I had lunch with Dana",
+    ],
+)
+def test_background_name_mentions_do_not_match(transcript: str) -> None:
+    intent = StructuredWatchIntent(
+        subject="Dana being called",
+        identifiers=[IntentIdentifier(value="Dana", required=False)],
+        context_terms=["calls"],
+        interesting_events=["called"],
+        keyterms=["Dana"],
+        speech_targets=[SpeechTarget(kind="name_call", terms=["Dana"])],
+    )
+
+    result = match_transcript("Someone calling Dana", transcript, intent)
+
+    assert result.match is False
 

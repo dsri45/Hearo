@@ -15,9 +15,26 @@ from websockets.asyncio.client import connect as connect_websocket
 from . import state
 from .alerts import create_alert
 from .deepgram import FinalTranscriptBuffer, build_live_url
+from .intent import extract_intent, local_intent
 from .matcher import match_transcript
-from .models import Alert, ContractModel, MatchResult, TranscriptEvent, WatchItem
+from .models import (
+    Alert,
+    ContractModel,
+    DetectedSoundEvent,
+    MatchResult,
+    SoundPreset,
+    SoundTarget,
+    StructuredWatchIntent,
+    TranscriptEvent,
+    WatchItem,
+)
 from .realtime import alert_connections
+from .sound_catalog import (
+    SOUND_PRESETS,
+    describe_sound_presets,
+    sound_target_for_preset,
+)
+from .sound_matcher import match_sound_event, normalize_sound_label
 
 
 _DASHBOARD_PATH = Path(__file__).resolve().parents[2] / "dashboard" / "index.html"
@@ -40,6 +57,14 @@ class GetWatchItemResponse(ContractModel):
     watch_item: str | None
 
 
+class GetWatchIntentResponse(ContractModel):
+    intent: StructuredWatchIntent | None
+
+
+class GetSoundPresetsResponse(ContractModel):
+    presets: list[SoundPreset]
+
+
 class TranscriptEvaluationResponse(ContractModel):
     watch_item: str
     transcript: TranscriptEvent
@@ -48,9 +73,18 @@ class TranscriptEvaluationResponse(ContractModel):
     suppressed: bool
 
 
+class SoundEvaluationResponse(ContractModel):
+    watch_item: str
+    sound_event: DetectedSoundEvent
+    match_result: MatchResult
+    alert: Alert | None
+    suppressed: bool
+
+
 class DebugStateResponse(ContractModel):
     watch_item: str | None
     transcript: TranscriptEvent | None
+    sound_event: DetectedSoundEvent | None
     match_result: MatchResult | None
     alert: Alert | None
     suppressed: bool
@@ -84,6 +118,17 @@ def dashboard() -> FileResponse:
     return FileResponse(_DASHBOARD_PATH)
 
 
+@app.get(
+    "/sound-presets",
+    response_model=GetSoundPresetsResponse,
+    tags=["wait-for"],
+)
+def get_sound_presets() -> GetSoundPresetsResponse:
+    """Return common sounds and their candidate Apple classifier labels."""
+
+    return GetSoundPresetsResponse(presets=list(SOUND_PRESETS))
+
+
 @app.post(
     "/watch-item",
     response_model=SetWatchItemResponse,
@@ -92,8 +137,23 @@ def dashboard() -> FileResponse:
 def set_watch_item(item: WatchItem) -> SetWatchItemResponse:
     """Set the Wait For item for the current prototype session."""
 
-    state.set_watch_item(item.text)
-    return SetWatchItemResponse(success=True, watch_item=item.text)
+    preset_ids = [str(preset_id) for preset_id in item.preset_sounds]
+    display_text = item.text or describe_sound_presets(preset_ids)
+    intent = extract_intent(item.text) if item.text else local_intent(display_text)
+    existing_labels = {
+        normalize_sound_label(target.label) for target in intent.sound_targets
+    }
+    preset_targets: list[SoundTarget] = []
+    for preset_id in preset_ids:
+        target = sound_target_for_preset(preset_id)
+        if normalize_sound_label(target.label) not in existing_labels:
+            preset_targets.append(target)
+            existing_labels.add(normalize_sound_label(target.label))
+    intent = intent.model_copy(
+        update={"sound_targets": [*intent.sound_targets, *preset_targets]}
+    )
+    state.set_watch_item(display_text, intent.model_dump(mode="json"))
+    return SetWatchItemResponse(success=True, watch_item=display_text)
 
 
 @app.get(
@@ -105,6 +165,17 @@ def get_watch_item() -> GetWatchItemResponse:
     """Return the current Wait For item."""
 
     return GetWatchItemResponse(watch_item=state.get_watch_item())
+
+
+@app.get(
+    "/watch-item/intent",
+    response_model=GetWatchIntentResponse,
+    tags=["wait-for"],
+)
+def get_watch_intent() -> GetWatchIntentResponse:
+    """Return the persisted structured meaning of the current Watch Item."""
+
+    return GetWatchIntentResponse(intent=state.get_watch_intent())
 
 
 @app.post(
@@ -136,7 +207,15 @@ async def _process_transcript(
     watch_item: str,
     event: TranscriptEvent,
 ) -> tuple[MatchResult, Alert | None, bool]:
-    result = match_transcript(watch_item, event.text)
+    result = match_transcript(watch_item, event.text, state.get_watch_intent())
+    emitted_alert, suppressed = await _emit_match(result)
+    state.record_evaluation(event, result, emitted_alert, suppressed)
+    return result, emitted_alert, suppressed
+
+
+async def _emit_match(result: MatchResult) -> tuple[Alert | None, bool]:
+    """Emit a canonical alert for either speech or environmental sound."""
+
     emitted_alert: Alert | None = None
     suppressed = False
 
@@ -148,8 +227,34 @@ async def _process_transcript(
             state.save_alert(emitted_alert)
             await alert_connections.broadcast(emitted_alert)
 
-    state.record_evaluation(event, result, emitted_alert, suppressed)
-    return result, emitted_alert, suppressed
+    return emitted_alert, suppressed
+
+
+@app.post(
+    "/events/sound",
+    response_model=SoundEvaluationResponse,
+    tags=["events"],
+)
+async def evaluate_sound(event: DetectedSoundEvent) -> SoundEvaluationResponse:
+    """Evaluate a sound label produced by Apple Sound Analysis or a simulator."""
+
+    watch_item = state.get_watch_item()
+    if watch_item is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Set a Watch Item before reporting a sound event.",
+        )
+
+    result = match_sound_event(watch_item, event, state.get_watch_intent())
+    emitted_alert, suppressed = await _emit_match(result)
+    state.record_sound_evaluation(event, result, emitted_alert, suppressed)
+    return SoundEvaluationResponse(
+        watch_item=watch_item,
+        sound_event=event,
+        match_result=result,
+        alert=emitted_alert,
+        suppressed=suppressed,
+    )
 
 
 @app.get(
@@ -163,6 +268,7 @@ def get_debug_state() -> DebugStateResponse:
     return DebugStateResponse(
         watch_item=state.get_watch_item(),
         transcript=state.latest_transcript,
+        sound_event=state.latest_sound_event,
         match_result=state.latest_match,
         alert=state.latest_alert,
         suppressed=state.latest_suppressed,
@@ -222,8 +328,10 @@ async def audio_websocket(websocket: WebSocket) -> None:
         return
 
     try:
+        watch_intent = state.get_watch_intent()
+        keyterms = watch_intent.keyterms if watch_intent is not None else []
         async with connect_websocket(
-            build_live_url(16000),
+            build_live_url(16000, keyterms=keyterms),
             additional_headers={"Authorization": f"Token {api_key}"},
             max_size=None,
         ) as deepgram:
@@ -263,14 +371,27 @@ async def audio_websocket(websocket: WebSocket) -> None:
                             raise RuntimeError(
                                 result_message.get("description", "Deepgram returned an error.")
                             )
-                        transcript = transcript_buffer.add(result_message)
-                        if transcript:
+                        progress = transcript_buffer.process(result_message)
+                        if progress.preview:
                             await websocket.send_json(
-                                {"type": "transcript", "text": transcript}
+                                {
+                                    "type": "transcript",
+                                    "text": progress.preview,
+                                    "final": progress.complete is not None,
+                                    "stable": progress.stable,
+                                }
                             )
+                        evaluated_stable_chunk = False
+                        if progress.stable and progress.preview:
                             await _process_transcript(
                                 watch_item,
-                                TranscriptEvent(text=transcript),
+                                TranscriptEvent(text=progress.preview),
+                            )
+                            evaluated_stable_chunk = True
+                        if progress.complete and not evaluated_stable_chunk:
+                            await _process_transcript(
+                                watch_item,
+                                TranscriptEvent(text=progress.complete),
                             )
                         deepgram_receive = asyncio.create_task(deepgram.recv())
             finally:
