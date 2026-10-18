@@ -10,7 +10,7 @@ iPhone microphone -> Python backend -> transcript matcher -> iPhone -> Apple Wat
 
 ## Repository layout
 
-- `backend/` — FastAPI service, matching logic, and later Deepgram integration
+- `backend/` — FastAPI service, matching logic, and Deepgram streaming
 - `dashboard/` — local debugging dashboard
 - `docs/` — architecture and message-contract documentation
 - `ios/` — iPhone and Watch app (created on the Mac)
@@ -18,7 +18,7 @@ iPhone microphone -> Python backend -> transcript matcher -> iPhone -> Apple Wat
 
 ## Current status
 
-The initial cross-platform repository structure is in place. The backend uses a Python 3.12 virtual environment at `backend/.venv`, with its dependencies pinned in `backend/requirements.txt`. The v1 backend/iPhone/Watch message contracts are implemented, documented, and covered by tests. The first FastAPI endpoints support health checks and setting or reading the process-local Wait For item. An offline deterministic matcher extracts identifiers and supporting keywords from arbitrary Watch Items and exercises varied use cases without external services.
+The backend and dashboard now support live Deepgram transcription through a local microphone stream. The backend loads its key from `backend/.env`, evaluates completed utterances with the deterministic matcher, and emits deduplicated alerts. The v1 backend/iPhone/Watch message contracts and debug transcript path remain available. The iOS and Watch clients have not yet been created.
 
 ## Run the backend
 
@@ -27,6 +27,14 @@ From the repository root on Windows:
 ```powershell
 backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload
 ```
+
+Before starting live transcription, copy `backend/.env.example` to
+`backend/.env` and set `DEEPGRAM_API_KEY`. The backend loads that file directly
+and keeps the key server-side. `/ws/audio` accepts a JSON start message with
+`type: start`, `encoding: linear16`, `sample_rate: 16000`, and `channels: 1`,
+then mono 16-bit PCM audio frames. Send `{"type":"stop"}` to finish a session.
+Completed utterances use the same matcher and alert path as
+`POST /debug/transcript`.
 
 Then open `http://localhost:8000/docs` for the interactive API documentation.
 
@@ -51,7 +59,7 @@ consume the same canonical Alert messages.
 2. Define shared JSON message contracts.
 3. Build the FastAPI skeleton and deterministic matcher tests.
 4. Prove fake alerts end-to-end before adding transcription.
-5. Add Deepgram streaming and semantic matching.
+5. Connect the iPhone audio capture to `/ws/audio` and iterate on semantic matching.
 
 See [the architecture notes](docs/architecture.md) for component boundaries.
 

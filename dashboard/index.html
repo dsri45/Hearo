@@ -119,6 +119,14 @@
           <button type="submit">Evaluate Transcript</button>
         </form>
 
+        <section class="card">
+          <h2>3 · Try live transcription</h2>
+          <p>Stream microphone audio to Deepgram. Allow microphone access when prompted.</p>
+          <button id="mic-button" type="button">Start listening</button>
+          <p id="mic-status" class="muted">Microphone is off.</p>
+          <p id="live-transcript" class="value"></p>
+        </section>
+
         <section class="card wide">
           <h2>Current pipeline state</h2>
           <div class="result">
@@ -142,7 +150,11 @@
       const transcriptForm = byId("transcript-form");
       const socketStatus = byId("socket-status");
       const alertLog = byId("alert-log");
+      const micButton = byId("mic-button");
+      const micStatus = byId("mic-status");
+      const liveTranscript = byId("live-transcript");
       let hasAlerts = false;
+      let micSession = null;
 
       async function request(path, options = {}) {
         const response = await fetch(path, {
@@ -192,6 +204,102 @@
           renderState({ watch_item: result.watch_item, transcript: result.transcript, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
         } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
         finally { button.disabled = false; }
+      });
+
+      async function stopListening() {
+        const session = micSession;
+        micSession = null;
+        micButton.textContent = "Start listening";
+        if (!session) return;
+        session.processor.disconnect();
+        session.source.disconnect();
+        session.stream.getTracks().forEach((track) => track.stop());
+        if (session.socket.readyState === WebSocket.OPEN) {
+          session.socket.send(JSON.stringify({ type: "stop" }));
+          await new Promise((resolve) => {
+            session.socket.addEventListener("close", resolve, { once: true });
+            window.setTimeout(resolve, 1500);
+          });
+        }
+        if (session.socket.readyState < WebSocket.CLOSING) session.socket.close();
+        await session.audioContext.close();
+        micStatus.textContent = "Microphone is off.";
+      }
+
+      async function startListening() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Microphone access requires localhost or a secure connection.");
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new AudioContext({ sampleRate: 16000 });
+        if (audioContext.sampleRate !== 16000) {
+          stream.getTracks().forEach((track) => track.stop());
+          await audioContext.close();
+          throw new Error("This browser could not open a 16 kHz audio stream.");
+        }
+
+        const socket = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws/audio`);
+        const source = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const session = { stream, audioContext, socket, source, processor, ready: false };
+        micSession = session;
+        micButton.textContent = "Stop listening";
+        micStatus.textContent = "Connecting to Deepgram…";
+        liveTranscript.textContent = "";
+
+        socket.addEventListener("open", () => {
+          socket.send(JSON.stringify({ type: "start", encoding: "linear16", sample_rate: 16000, channels: 1 }));
+        });
+        socket.addEventListener("message", (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === "ready") {
+            session.ready = true;
+            processor.onaudioprocess = (audioEvent) => {
+              if (!session.ready || socket.readyState !== WebSocket.OPEN) return;
+              const samples = audioEvent.inputBuffer.getChannelData(0);
+              const pcm = new Int16Array(samples.length);
+              for (let index = 0; index < samples.length; index += 1) {
+                const sample = Math.max(-1, Math.min(1, samples[index]));
+                pcm[index] = sample < 0 ? sample * 32768 : sample * 32767;
+              }
+              socket.send(pcm.buffer);
+            };
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            micStatus.textContent = "Listening… speak an announcement.";
+          } else if (message.type === "transcript") {
+            liveTranscript.textContent = message.text;
+            micStatus.textContent = "Listening… transcript evaluated.";
+          } else if (message.type === "error") {
+            session.errorDetail = message.detail;
+            micStatus.textContent = message.detail;
+          }
+        });
+        socket.addEventListener("close", async (event) => {
+          if (micSession === session) {
+            micSession = null;
+            micButton.textContent = "Start listening";
+            stream.getTracks().forEach((track) => track.stop());
+            await audioContext.close();
+            micStatus.textContent = session.errorDetail || event.reason || `Stream disconnected (code ${event.code}).`;
+          }
+        });
+        socket.addEventListener("error", () => {
+          micStatus.textContent = "Could not connect to the audio stream.";
+        });
+      }
+
+      micButton.addEventListener("click", async () => {
+        micButton.disabled = true;
+        try {
+          if (micSession) await stopListening();
+          else await startListening();
+        } catch (error) {
+          micStatus.textContent = error.message;
+          if (micSession) await stopListening();
+        } finally {
+          micButton.disabled = false;
+        }
       });
 
       function connectAlerts() {

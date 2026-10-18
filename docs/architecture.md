@@ -19,8 +19,8 @@ iPhone app
 
 FastAPI backend
   |-- stores current session state in memory for the prototype
-  |-- streams audio to Deepgram (later)
-  |-- matches finalized transcripts against structured intent
+  |-- streams iPhone PCM audio to Deepgram over `/ws/audio`
+  |-- evaluates completed Deepgram utterances with the transcript matcher
   `-- creates and deduplicates Alerts
 ```
 
@@ -166,6 +166,23 @@ Positive matches become `watchlist_match` alerts with stable IDs derived from
 their event type, title, and detail. Repeating the same semantic event within 60
 seconds is marked `suppressed` and emits no second alert. `GET /debug/state`
 exposes the latest evaluation for the local dashboard.
+
+## Live transcription
+
+The backend loads `DEEPGRAM_API_KEY` from `backend/.env` or the process
+environment and keeps the credential server-side. The iPhone connects to
+`/ws/audio`, sends a start message describing mono 16 kHz linear16 PCM, then
+streams binary audio frames. It sends `{"type":"stop"}` to end the session.
+The backend forwards the frames to Deepgram's Nova-3 live transcription
+endpoint, buffers finalized transcript chunks until an utterance is complete,
+and passes each utterance through the existing matcher, alert, and
+deduplication pipeline. Interim transcript results are not evaluated. Audio,
+transcripts, and stream state remain in memory only.
+
+The audio WebSocket currently has no client authentication and is intended for
+local development. The iOS app is not yet present in this repository, so a
+phone-to-alert end-to-end test requires an iOS client that implements this
+audio protocol and captures the specified PCM format.
 
 ## Real-time delivery
 
