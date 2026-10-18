@@ -22,12 +22,14 @@ from .models import (
     ContractModel,
     DetectedSoundEvent,
     MatchResult,
+    RestModeSession,
     SoundPreset,
     SoundTarget,
     StructuredWatchIntent,
     TranscriptEvent,
     WatchItem,
 )
+from .recap import generate_recap
 from .realtime import alert_connections
 from .sound_catalog import (
     SOUND_PRESETS,
@@ -66,7 +68,7 @@ class GetSoundPresetsResponse(ContractModel):
 
 
 class TranscriptEvaluationResponse(ContractModel):
-    watch_item: str
+    watch_item: str | None
     transcript: TranscriptEvent
     match_result: MatchResult
     alert: Alert | None
@@ -74,7 +76,7 @@ class TranscriptEvaluationResponse(ContractModel):
 
 
 class SoundEvaluationResponse(ContractModel):
-    watch_item: str
+    watch_item: str | None
     sound_event: DetectedSoundEvent
     match_result: MatchResult
     alert: Alert | None
@@ -88,6 +90,11 @@ class DebugStateResponse(ContractModel):
     match_result: MatchResult | None
     alert: Alert | None
     suppressed: bool
+
+
+class RestModeStatusResponse(ContractModel):
+    active: RestModeSession | None
+    latest: RestModeSession | None
 
 
 app = FastAPI(
@@ -178,6 +185,39 @@ def get_watch_intent() -> GetWatchIntentResponse:
     return GetWatchIntentResponse(intent=state.get_watch_intent())
 
 
+@app.post("/rest-mode/start", response_model=RestModeSession, tags=["rest-mode"])
+def start_rest_mode() -> RestModeSession:
+    """Begin collecting finalized context without retaining raw audio."""
+
+    try:
+        return state.start_rest_mode()
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/rest-mode", response_model=RestModeStatusResponse, tags=["rest-mode"])
+def get_rest_mode() -> RestModeStatusResponse:
+    """Return the active Rest Mode interval and most recent saved recap."""
+
+    active = state.get_active_rest_session()
+    latest = state.get_latest_rest_session()
+    return RestModeStatusResponse(active=active, latest=latest)
+
+
+@app.post("/rest-mode/stop", response_model=RestModeSession, tags=["rest-mode"])
+def stop_rest_mode() -> RestModeSession:
+    """Summarize captured context, persist the recap, and purge its timeline."""
+
+    active = state.get_active_rest_session()
+    if active is None:
+        raise HTTPException(status_code=409, detail="Rest Mode is not active.")
+    recap = generate_recap(state.get_rest_events(active.id))
+    completed = state.finish_rest_mode(active.id, recap)
+    if completed is None:
+        raise HTTPException(status_code=409, detail="Rest Mode is no longer active.")
+    return completed
+
+
 @app.post(
     "/debug/transcript",
     response_model=TranscriptEvaluationResponse,
@@ -187,10 +227,10 @@ async def evaluate_transcript(event: TranscriptEvent) -> TranscriptEvaluationRes
     """Run manually supplied transcript text through the complete alert pipeline."""
 
     watch_item = state.get_watch_item()
-    if watch_item is None:
+    if watch_item is None and state.get_active_rest_session() is None:
         raise HTTPException(
             status_code=409,
-            detail="Set a Watch Item before evaluating a transcript.",
+            detail="Set a Watch Item or start Rest Mode before evaluating a transcript.",
         )
 
     result, emitted_alert, suppressed = await _process_transcript(watch_item, event)
@@ -204,11 +244,25 @@ async def evaluate_transcript(event: TranscriptEvent) -> TranscriptEvaluationRes
 
 
 async def _process_transcript(
-    watch_item: str,
+    watch_item: str | None,
     event: TranscriptEvent,
+    *,
+    context_text: str | None = None,
+    source: str = "debug",
+    record_context: bool = True,
 ) -> tuple[MatchResult, Alert | None, bool]:
-    result = match_transcript(watch_item, event.text, state.get_watch_intent())
+    result = (
+        MatchResult(match=False, confidence=0, reason="No Watch Item configured")
+        if watch_item is None
+        else match_transcript(watch_item, event.text, state.get_watch_intent())
+    )
     emitted_alert, suppressed = await _emit_match(result)
+    if record_context:
+        state.record_rest_transcript(
+            context_text or event.text,
+            important=result.match,
+            source=source,
+        )
     state.record_evaluation(event, result, emitted_alert, suppressed)
     return result, emitted_alert, suppressed
 
@@ -239,14 +293,19 @@ async def evaluate_sound(event: DetectedSoundEvent) -> SoundEvaluationResponse:
     """Evaluate a sound label produced by Apple Sound Analysis or a simulator."""
 
     watch_item = state.get_watch_item()
-    if watch_item is None:
+    if watch_item is None and state.get_active_rest_session() is None:
         raise HTTPException(
             status_code=409,
-            detail="Set a Watch Item before reporting a sound event.",
+            detail="Set a Watch Item or start Rest Mode before reporting a sound event.",
         )
 
-    result = match_sound_event(watch_item, event, state.get_watch_intent())
+    result = (
+        MatchResult(match=False, confidence=0, reason="No Watch Item configured")
+        if watch_item is None
+        else match_sound_event(watch_item, event, state.get_watch_intent())
+    )
     emitted_alert, suppressed = await _emit_match(result)
+    state.record_rest_sound(event, important=result.match)
     state.record_sound_evaluation(event, result, emitted_alert, suppressed)
     return SoundEvaluationResponse(
         watch_item=watch_item,
@@ -299,8 +358,8 @@ async def audio_websocket(websocket: WebSocket) -> None:
         await websocket.send_json({"type": "error", "detail": detail})
         await websocket.close(code=code, reason=detail)
 
-    if state.get_watch_item() is None:
-        await reject(4409, "Set a Watch Item before listening.")
+    if state.get_watch_item() is None and state.get_active_rest_session() is None:
+        await reject(4409, "Set a Watch Item or start Rest Mode before listening.")
         return
 
     api_key = os.getenv("DEEPGRAM_API_KEY", "").strip()
@@ -323,10 +382,6 @@ async def audio_websocket(websocket: WebSocket) -> None:
         return
 
     watch_item = state.get_watch_item()
-    if watch_item is None:
-        await reject(4409, "Set a Watch Item before listening.")
-        return
-
     try:
         watch_intent = state.get_watch_intent()
         keyterms = watch_intent.keyterms if watch_intent is not None else []
@@ -386,12 +441,17 @@ async def audio_websocket(websocket: WebSocket) -> None:
                             await _process_transcript(
                                 watch_item,
                                 TranscriptEvent(text=progress.preview),
+                                context_text=progress.complete,
+                                source="deepgram",
+                                record_context=progress.complete is not None,
                             )
                             evaluated_stable_chunk = True
                         if progress.complete and not evaluated_stable_chunk:
                             await _process_transcript(
                                 watch_item,
                                 TranscriptEvent(text=progress.complete),
+                                context_text=progress.complete,
+                                source="deepgram",
                             )
                         deepgram_receive = asyncio.create_task(deepgram.recv())
             finally:

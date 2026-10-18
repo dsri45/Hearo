@@ -88,6 +88,10 @@
       .preset-option { display: flex; align-items: center; gap: 9px; margin: 0; padding: 10px; border: 1px solid #29445f; border-radius: 10px; background: #071421; cursor: pointer; }
       .preset-option input { width: auto; margin: 0; accent-color: #63dfbd; }
       .preset-option span { color: #dbe8f8; }
+      .rest-active { border-color: #63dfbd; box-shadow: 0 0 0 1px #63dfbd55, 0 20px 60px #0004; }
+      .recap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+      .recap-list { margin: 8px 0 0; padding-left: 20px; color: #dbe8f8; line-height: 1.5; }
+      .secondary { background: #263b53; color: #eef6ff; }
 
       @media (max-width: 720px) {
         header { display: block; }
@@ -95,6 +99,7 @@
         .grid { grid-template-columns: 1fr; }
         .wide { grid-column: auto; }
         .result { grid-template-columns: 1fr; }
+        .recap-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -151,6 +156,22 @@
           <p id="live-transcript" class="value"></p>
         </section>
 
+        <section id="rest-card" class="card wide">
+          <h2>5 &middot; Rest Mode &mdash; What I missed</h2>
+          <p>Use this while your hearing device is off. Hearo still sends important alerts, while also collecting finalized context for a recap. Raw audio is never saved.</p>
+          <button id="rest-button" type="button">Start Rest Mode</button>
+          <p id="rest-status" class="muted">Rest Mode is off.</p>
+          <div id="recap" hidden>
+            <h2 id="recap-title">What you missed</h2>
+            <p id="recap-overview"></p>
+            <div class="recap-grid">
+              <div class="metric"><span>IMPORTANT</span><ul id="recap-important" class="recap-list"></ul></div>
+              <div class="metric"><span>CONVERSATIONS &amp; ANNOUNCEMENTS</span><ul id="recap-speech" class="recap-list"></ul></div>
+              <div class="metric"><span>SOUNDS</span><ul id="recap-sounds" class="recap-list"></ul></div>
+            </div>
+          </div>
+        </section>
+
         <section class="card wide">
           <h2>Gemini listening plan</h2>
           <div id="intent-plan" class="value muted">Save a Watch Item to extract its speech and sound targets.</div>
@@ -183,6 +204,9 @@
       const micButton = byId("mic-button");
       const micStatus = byId("mic-status");
       const liveTranscript = byId("live-transcript");
+      const restButton = byId("rest-button");
+      const restStatus = byId("rest-status");
+      const restCard = byId("rest-card");
       let hasAlerts = false;
       let micSession = null;
 
@@ -230,6 +254,64 @@
           byId("intent-plan").className = "error";
         }
       }
+
+      function fillList(element, values, emptyText) {
+        element.replaceChildren();
+        const items = values.length ? values : [emptyText];
+        for (const value of items) {
+          const item = document.createElement("li");
+          item.textContent = value;
+          element.append(item);
+        }
+      }
+
+      function renderRecap(recap) {
+        if (!recap) return;
+        byId("recap").hidden = false;
+        byId("recap-title").textContent = recap.title;
+        byId("recap-overview").textContent = recap.overview;
+        fillList(byId("recap-important"), recap.important_events, "No priority events.");
+        fillList(byId("recap-speech"), recap.conversations_and_announcements, "No speech captured.");
+        fillList(byId("recap-sounds"), recap.environmental_sounds, "No sounds captured.");
+      }
+
+      async function refreshRestMode() {
+        try {
+          const status = await request("/rest-mode");
+          const active = status.active;
+          restCard.classList.toggle("rest-active", Boolean(active));
+          restButton.textContent = active ? "End Rest Mode & summarize" : "Start Rest Mode";
+          restStatus.textContent = active
+            ? `Rest Mode is active · ${active.event_count} finalized event${active.event_count === 1 ? "" : "s"} captured.`
+            : "Rest Mode is off.";
+          if (!active && status.latest?.recap) renderRecap(status.latest.recap);
+        } catch (error) {
+          restStatus.textContent = error.message;
+          restStatus.className = "error";
+        }
+      }
+
+      restButton.addEventListener("click", async () => {
+        restButton.disabled = true;
+        try {
+          const current = await request("/rest-mode");
+          if (current.active) {
+            if (micSession) await stopListening();
+            restStatus.textContent = "Creating your recap with Gemini…";
+            const completed = await request("/rest-mode/stop", { method: "POST" });
+            renderRecap(completed.recap);
+          } else {
+            await request("/rest-mode/start", { method: "POST" });
+            byId("recap").hidden = true;
+          }
+          await refreshRestMode();
+        } catch (error) {
+          restStatus.textContent = error.message;
+          restStatus.className = "error";
+        } finally {
+          restButton.disabled = false;
+        }
+      });
 
       async function loadSoundPresets() {
         const container = byId("sound-presets");
@@ -281,6 +363,7 @@
         try {
           const result = await request("/debug/transcript", { method: "POST", body: JSON.stringify({ text: byId("transcript").value }) });
           renderState({ watch_item: result.watch_item, transcript: result.transcript, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
+          await refreshRestMode();
         } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
         finally { button.disabled = false; }
       });
@@ -299,6 +382,7 @@
             }),
           });
           renderState({ watch_item: result.watch_item, sound_event: result.sound_event, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
+          await refreshRestMode();
         } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
         finally { button.disabled = false; }
       });
@@ -427,6 +511,8 @@
       }
 
       refreshState();
+      refreshRestMode();
+      window.setInterval(refreshRestMode, 3000);
       loadSoundPresets().then(refreshIntent);
       connectAlerts();
     </script>

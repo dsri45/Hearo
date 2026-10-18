@@ -68,6 +68,8 @@ def test_transcript_buffer_exposes_accumulating_interim_preview() -> None:
     assert first.stable is False
     assert finalized_chunk.preview == "Is Dana"
     assert finalized_chunk.stable is True
+    assert finalized_chunk.finalized_chunk == "Is Dana"
     assert second.preview == "Is Dana here"
     assert second.complete is None
     assert second.stable is False
+    assert second.finalized_chunk is None

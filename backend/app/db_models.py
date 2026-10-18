@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, JSON, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -45,3 +45,32 @@ class AlertRow(Base):
     detail: Mapped[str] = mapped_column(String(500), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     timestamp: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class RestSessionRow(Base):
+    __tablename__ = "rest_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    watch_item: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    started_at: Mapped[float] = mapped_column(Float, nullable=False)
+    ended_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    recap: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+
+class RestEventRow(Base):
+    __tablename__ = "rest_events"
+    __table_args__ = (Index("ix_rest_events_session_time", "session_id", "timestamp"),)
+
+    sequence: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("rest_sessions.id"),
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    timestamp: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    important: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)

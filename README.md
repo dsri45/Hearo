@@ -24,6 +24,14 @@ The dashboard displays Deepgram's interim transcript while the user is speaking.
 Stable finalized chunks enter the matcher immediately while recording; unstable
 interim words remain display-only.
 
+Hearo also includes a browser-testable Rest Mode for times when the user removes
+their hearing device. While Rest Mode is active, the normal Watch Item alert
+pipeline continues, and completed utterances plus reported environmental sounds
+form a broader context timeline. On exit, Gemini produces a structured "What I
+missed" recap with priority events, conversations and announcements, and sound
+context. Hearo never stores raw audio, and the temporary timeline is deleted
+after its recap is saved in SQLite.
+
 ## Run the backend
 
 From the repository root on Windows:
@@ -63,6 +71,16 @@ Open `http://localhost:8000/dashboard` for the local testing interface. It uses
 consume the same canonical Alert messages. The dashboard can also simulate an
 Apple Sound Analysis result. The future iPhone client reports those results to
 `POST /events/sound` as a label, confidence, and source.
+
+The dashboard's Rest Mode card can exercise the complete non-iOS flow. Start
+Rest Mode, use live transcription or the transcript/sound simulators, then
+choose **End Rest Mode & summarize**. Rest Mode works without a Watch Item when
+the user only wants a broad recap. With a Watch Item configured, matching events
+still emit immediate alerts while the broader recap context is collected.
+
+The equivalent API lifecycle is `POST /rest-mode/start`, `GET /rest-mode`, and
+`POST /rest-mode/stop`. The future iPhone client can call those same endpoints.
+Automatic headphone-route detection and native haptics remain iOS/Xcode work.
 
 Users may combine free text with common sound presets such as Doorbell, Siren,
 Fire alarm, Smoke alarm, Door knock, Dog barking, Baby crying, and Car horn.

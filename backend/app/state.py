@@ -7,6 +7,10 @@ from .models import (
     Alert,
     DetectedSoundEvent,
     MatchResult,
+    RestEventType,
+    RestModeEvent,
+    RestModeRecap,
+    RestModeSession,
     StructuredWatchIntent,
     TranscriptEvent,
 )
@@ -71,6 +75,65 @@ def save_alert(alert: Alert) -> None:
 
 def list_alerts(limit: int = 100) -> list[Alert]:
     return _repository.list_alerts(limit)
+
+
+def start_rest_mode() -> RestModeSession:
+    return _repository.start_rest_session(get_watch_item())
+
+
+def get_active_rest_session() -> RestModeSession | None:
+    return _repository.get_active_rest_session()
+
+
+def get_latest_rest_session() -> RestModeSession | None:
+    return _repository.get_latest_rest_session()
+
+
+def get_rest_events(session_id: str) -> list[RestModeEvent]:
+    return _repository.list_rest_events(session_id)
+
+
+def record_rest_transcript(
+    text: str,
+    *,
+    important: bool = False,
+    source: str = "deepgram",
+) -> RestModeEvent | None:
+    active = get_active_rest_session()
+    if active is None or not text.strip():
+        return None
+    return _repository.add_rest_event(
+        active.id,
+        RestEventType.TRANSCRIPT,
+        text.strip(),
+        important=important,
+        source=source,
+    )
+
+
+def record_rest_sound(
+    event: DetectedSoundEvent,
+    *,
+    important: bool = False,
+) -> RestModeEvent | None:
+    active = get_active_rest_session()
+    if active is None:
+        return None
+    return _repository.add_rest_event(
+        active.id,
+        RestEventType.SOUND,
+        event.label,
+        confidence=event.confidence,
+        important=important,
+        source=event.source,
+    )
+
+
+def finish_rest_mode(
+    session_id: str,
+    recap: RestModeRecap,
+) -> RestModeSession | None:
+    return _repository.finish_rest_session(session_id, recap, purge_events=True)
 
 
 def record_evaluation(

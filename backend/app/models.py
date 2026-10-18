@@ -1,6 +1,7 @@
 """Shared JSON contracts used by the backend, iPhone, and Apple Watch."""
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -29,6 +30,13 @@ class HapticType(str, Enum):
     WATCHLIST_MATCH = "watchlist_match"
     NORMAL_ALERT = "normal_alert"
     URGENT = "urgent"
+
+
+class RestEventType(str, Enum):
+    """Context captured while the user is in Rest Mode."""
+
+    TRANSCRIPT = "transcript"
+    SOUND = "sound"
 
 
 class SoundPresetID(str, Enum):
@@ -127,6 +135,45 @@ class DetectedSoundEvent(ContractModel):
     label: str = Field(min_length=1, max_length=100)
     confidence: float = Field(ge=0, le=1)
     source: str = Field(default="apple_sound_analysis", min_length=1, max_length=100)
+
+
+class RestModeEvent(ContractModel):
+    """A temporary, non-audio event used to produce a Rest Mode recap."""
+
+    sequence: int = Field(ge=1)
+    session_id: str = Field(min_length=1, max_length=36)
+    event_type: RestEventType
+    text: str = Field(min_length=1, max_length=10_000)
+    timestamp: float = Field(ge=0)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    important: bool = False
+    source: str = Field(default="unknown", min_length=1, max_length=100)
+
+
+class RestModeRecap(ContractModel):
+    """Structured summary shown when the user exits Rest Mode."""
+
+    title: str = Field(min_length=1, max_length=120)
+    overview: str = Field(min_length=1, max_length=1_000)
+    important_events: list[str] = Field(default_factory=list, max_length=20)
+    conversations_and_announcements: list[str] = Field(
+        default_factory=list,
+        max_length=30,
+    )
+    environmental_sounds: list[str] = Field(default_factory=list, max_length=20)
+    provider: str = Field(default="local", min_length=1, max_length=30)
+
+
+class RestModeSession(ContractModel):
+    """Persisted lifecycle and final recap for one Rest Mode interval."""
+
+    id: str = Field(min_length=1, max_length=36)
+    status: Literal["active", "ended"]
+    started_at: float = Field(ge=0)
+    ended_at: float | None = Field(default=None, ge=0)
+    watch_item: str | None = Field(default=None, max_length=500)
+    event_count: int = Field(default=0, ge=0)
+    recap: RestModeRecap | None = None
 
 
 class MatchResult(ContractModel):

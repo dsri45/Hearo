@@ -34,6 +34,7 @@ class TranscriptProgress:
     preview: str | None = None
     complete: str | None = None
     stable: bool = False
+    finalized_chunk: str | None = None
 
 
 class FinalTranscriptBuffer:
@@ -73,7 +74,11 @@ class FinalTranscriptBuffer:
         preview = " ".join(preview_parts)
 
         if not speech_final:
-            return TranscriptProgress(preview=preview, stable=is_final)
+            return TranscriptProgress(
+                preview=preview,
+                stable=is_final,
+                finalized_chunk=transcript if is_final else None,
+            )
 
         if not self._chunks:
             self._chunks.append(transcript)
@@ -83,6 +88,7 @@ class FinalTranscriptBuffer:
             preview=complete_transcript,
             complete=complete_transcript,
             stable=is_final,
+            finalized_chunk=transcript if is_final else None,
         )
 
     def add(self, message: Mapping[str, object]) -> str | None:

@@ -133,7 +133,7 @@ def test_transcript_requires_watch_item(client: TestClient) -> None:
 
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        "Set a Watch Item before evaluating a transcript."
+        "Set a Watch Item or start Rest Mode before evaluating a transcript."
     )
 
 
@@ -259,6 +259,7 @@ def test_dashboard_is_served(client: TestClient) -> None:
     assert "/ws/alerts" in response.text
     assert "/events/sound" in response.text
     assert "Gemini listening plan" in response.text
+    assert "What I missed" in response.text
 
 
 def test_websocket_receives_emitted_alert(client: TestClient) -> None:
@@ -275,3 +276,44 @@ def test_websocket_receives_emitted_alert(client: TestClient) -> None:
     assert message["id"] == response.json()["alert"]["id"]
     assert message["category"] == "watchlist_match"
     assert message["detail"] == "Now being called"
+
+
+def test_rest_mode_collects_broad_context_and_returns_recap(client: TestClient) -> None:
+    started = client.post("/rest-mode/start")
+    assert started.status_code == 200
+    assert started.json()["status"] == "active"
+
+    speech = client.post(
+        "/debug/transcript",
+        json={"text": "The meeting moved to the room across the hall."},
+    )
+    sound = client.post(
+        "/events/sound",
+        json={"label": "doorbell", "confidence": 0.91, "source": "simulator"},
+    )
+    assert speech.status_code == 200
+    assert speech.json()["match_result"]["match"] is False
+    assert sound.status_code == 200
+
+    active = client.get("/rest-mode").json()["active"]
+    assert active["event_count"] == 2
+
+    stopped = client.post("/rest-mode/stop")
+    assert stopped.status_code == 200
+    body = stopped.json()
+    assert body["status"] == "ended"
+    assert body["event_count"] == 2
+    assert body["recap"]["provider"] == "local"
+    assert body["recap"]["conversations_and_announcements"] == [
+        "The meeting moved to the room across the hall."
+    ]
+    assert body["recap"]["environmental_sounds"] == ["doorbell"]
+    assert client.get("/rest-mode").json()["active"] is None
+
+
+def test_rest_mode_rejects_duplicate_start_and_stop_when_inactive(
+    client: TestClient,
+) -> None:
+    assert client.post("/rest-mode/stop").status_code == 409
+    assert client.post("/rest-mode/start").status_code == 200
+    assert client.post("/rest-mode/start").status_code == 409
