@@ -19,7 +19,7 @@ _GATE_RE = re.compile(r"\bgate\s+([a-z]?\d{1,3}[a-z]?)\b", re.IGNORECASE)
 _PLATFORM_RE = re.compile(r"\bplatform\s+([a-z]?\d{1,3}[a-z]?)\b", re.IGNORECASE)
 _DESTINATION_RE = re.compile(
     r"\bto\s+([a-z][a-z .'-]*?)"
-    r"(?=\s+(?:is|has|will|was|now|at|boarding|departing|delayed|cancelled|"
+    r"(?=\s+(?:is|has|will|was|now|at|from|boarding|departing|delayed|cancelled|"
     r"canceled|moved|service)\b|[,!.?]|$)",
     re.IGNORECASE,
 )

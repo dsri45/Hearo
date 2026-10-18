@@ -8,7 +8,12 @@ from typing import Any
 
 from google import genai
 
-from .intent import DEFAULT_GEMINI_MODEL, configured_api_key
+from .intent import (
+    DEFAULT_GEMINI_MODEL,
+    GEMINI_REQUEST_TIMEOUT_SECONDS,
+    configured_api_key,
+    gemini_http_options,
+)
 from .models import RestModeEvent, RestModeRecap
 
 
@@ -94,7 +99,10 @@ class GeminiRecapGenerator:
             timeline.append(item)
             used += len(encoded)
         prompt = f"{_INSTRUCTIONS}\n\n--- UNTRUSTED TIMELINE ---\n{json.dumps(timeline)}"
-        client = self.client_factory(api_key=self.api_key)
+        client = self.client_factory(
+            api_key=self.api_key,
+            http_options=gemini_http_options(),
+        )
         try:
             interaction = client.interactions.create(
                 model=self.model,
@@ -104,6 +112,7 @@ class GeminiRecapGenerator:
                     "mime_type": "application/json",
                     "schema": _RECAP_SCHEMA,
                 },
+                timeout=GEMINI_REQUEST_TIMEOUT_SECONDS,
             )
             output = getattr(interaction, "output_text", None)
             if not isinstance(output, str) or not output.strip():

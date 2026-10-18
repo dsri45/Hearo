@@ -13,12 +13,12 @@ iPhone microphone -> speech/sound detectors -> Python backend -> iPhone -> Apple
 - `backend/` — FastAPI service, matching logic, and Deepgram streaming
 - `dashboard/` — local debugging dashboard
 - `docs/` — architecture and message-contract documentation
-- `ios/` — iPhone and Watch app (created on the Mac)
+- `ios/` — native SwiftUI iPhone app and Xcode project
 - `tests/` — backend tests, deterministic cases, and later audio fixtures
 
 ## Current status
 
-The backend and dashboard now support live Deepgram transcription plus general environmental-sound events. Saving a Watch Item invokes Gemini 3.5 Flash-Lite to separate speech targets from sounds such as doorbells, sirens, alarms, and knocks; a deterministic local fallback remains available. Completed utterances and sound-classifier results share the same matching, WebSocket alert, and future Watch-haptic pipeline. Repeated matches emit repeated alerts. The iOS and Watch clients have not yet been created.
+The backend and dashboard now support live Deepgram transcription plus environmental-sound events. The native iPhone client is in `ios/Hearo.xcodeproj`. It uses the same backend for Listen, Watch List, alerts, and Rest Mode recaps, while Apple Sound Analysis classifies microphone audio on the iPhone.
 
 The dashboard displays Deepgram's interim transcript while the user is speaking.
 Stable finalized chunks enter the matcher immediately while recording; unstable
@@ -33,6 +33,13 @@ context. Hearo never stores raw audio, and the temporary timeline is deleted
 after its recap is saved in SQLite.
 
 ## Run the backend
+
+On macOS, launch it on all network interfaces so an iPhone on the same Wi-Fi
+can reach it:
+
+```sh
+backend/.venv/bin/python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
 From the repository root on Windows:
 
@@ -66,28 +73,56 @@ The response includes the match decision and any emitted alert. Every matching
 event emits an alert, including immediate repetitions. The latest evaluation is
 available from `GET /debug/state`.
 
-Open `http://localhost:8000/dashboard` for the local testing interface. It uses
-`/ws/alerts` to display emitted alerts in real time; the future iPhone client can
-consume the same canonical Alert messages. The dashboard can also simulate an
-Apple Sound Analysis result. The future iPhone client reports those results to
-`POST /events/sound` as a label, confidence, and source.
+Open `http://localhost:8000/app` for the Hearo UI. Its controls connect to the
+Watch Item, Rest Mode, transcript and sound simulation endpoints, the live
+microphone transcription socket, and the alert WebSocket. The UI restores the
+saved Watch Item and recent alerts from the backend when it opens. The earlier
+developer dashboard remains available at `http://localhost:8000/dashboard`.
 
-The dashboard's Rest Mode card can exercise the complete non-iOS flow. Start
-Rest Mode, use live transcription or the transcript/sound simulators, then
-choose **End Rest Mode & summarize**. Rest Mode works without a Watch Item when
-the user only wants a broad recap. With a Watch Item configured, matching events
-still emit immediate alerts while the broader recap context is collected.
+The UI's microphone streams mono 16 kHz PCM to `/ws/audio`; live transcription
+requires `DEEPGRAM_API_KEY`. Transcript and sound simulation controls work
+without a microphone and send events through the same matcher and alert pipeline.
+
+The app and developer dashboard can exercise the complete non-iOS flow. Start
+listening (which starts Rest Mode and the microphone), use live transcription or
+the transcript/sound simulators, then end listening to generate the recap. Rest
+Mode works without a Watch Item when the user only wants a broad recap. With a
+Watch Item configured, matching events still emit immediate alerts while the
+broader recap context is collected.
 
 The equivalent API lifecycle is `POST /rest-mode/start`, `GET /rest-mode`, and
-`POST /rest-mode/stop`. The future iPhone client can call those same endpoints.
-Automatic headphone-route detection and native haptics remain iOS/Xcode work.
+`POST /rest-mode/stop`. The iPhone app watches AVAudioSession route changes:
+connecting an AirPods/Bluetooth/wired audio route ends Rest Mode, and losing
+that route starts it. Rest Mode audio capture can continue while the app is in
+the background. iOS does not expose reliable AirPods in-ear state to third-party
+apps, and route changes may not wake a suspended app, so transitions should be
+validated on the paired iPhone with the app active. A future hearing-aid model
+may expose a more reliable wearing-state API. The iPhone project also embeds a
+simple Hearo watchOS app: it shows the
+latest alert title and gives an active Watch app a notification haptic. The
+iPhone sends a title-only notification so watchOS can forward it to the Watch
+when the phone is locked or asleep.
 
-Users may combine free text with common sound presets such as Doorbell, Siren,
-Fire alarm, Smoke alarm, Door knock, Dog barking, Baby crying, and Car horn.
-`GET /sound-presets` exposes each preset's candidate Apple classification
-identifiers. The iOS client must compare them with
-`SNClassifySoundRequest.knownClassifications` and only display presets supported
-by the built-in classifier on that device and OS version.
+## Run the native iPhone app
+
+Open `ios/Hearo.xcodeproj` in Xcode, select the Hearo target, choose your Apple
+development team under Signing & Capabilities, and run it on an iPhone. The app
+asks for microphone access because it runs Apple Sound Analysis and streams
+16 kHz audio through the backend to Deepgram for transcription.
+
+Start the backend on your Mac first. In the app's Profile tab, set Backend
+connection to your Mac's local network address, for example
+`http://192.168.1.20:8000`; `localhost` on the iPhone refers to the phone itself.
+Keep the phone and Mac on the same Wi-Fi network. The Sounds picker reads
+`SNClassifySoundRequest.knownClassifications` on-device and sends matching
+labels and confidence to `POST /events/sound`. The Name option uses the first
+name saved in the app's Profile and checks the live transcript for it.
+
+The Watch companion is the `Hearo Watch App` target in the same Xcode project.
+Run the `Hearo` scheme on the paired iPhone to install both apps. Allow Hearo
+notifications on first launch and enable Hearo under Apple Watch app → My Watch
+→ Notifications. Direct WatchConnectivity haptics work while the Watch app is
+active; background notifications use watchOS notification forwarding.
 
 ## MVP order
 

@@ -65,6 +65,39 @@ class WatchItem(ContractModel):
         return self
 
 
+class AddWatchlistItem(ContractModel):
+    """A persistent entry added to the user's Watchlist."""
+
+    text: str = Field(default="", max_length=500)
+    preset_sounds: list[str] = Field(default_factory=list, max_length=1000)
+    kind: Literal["flight", "name", "order", "any"] = "any"
+    expires_at: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def require_text_or_preset(self) -> "AddWatchlistItem":
+        if not self.text and not self.preset_sounds:
+            raise ValueError("provide text or select at least one sound preset")
+        return self
+
+
+class WatchlistToggle(ContractModel):
+    enabled: bool
+
+
+class AlertPreferences(ContractModel):
+    """Persistent always-on sound and alert-confidence settings."""
+
+    always_on_name: bool = True
+    always_on_sirens_and_horns: bool = True
+    always_on_doorbell_and_knocking: bool = True
+    always_on_glass_breaking: bool = False
+    confidence: Literal["early", "balanced", "certain"] = "balanced"
+
+
+class WatchlistUpdateResponse(ContractModel):
+    success: Literal[True]
+
+
 class ExtractedWatchTerms(ContractModel):
     """Locally extracted terms used for transcription hints and matching."""
 
@@ -107,12 +140,26 @@ class StructuredWatchIntent(ContractModel):
     """LLM-produced meaning used for keyterms and deterministic matching."""
 
     subject: str = Field(min_length=1, max_length=200)
+    provider: Literal["gemini", "local"] = "local"
     identifiers: list[IntentIdentifier] = Field(default_factory=list, max_length=20)
     context_terms: list[str] = Field(default_factory=list, max_length=50)
     interesting_events: list[str] = Field(default_factory=list, max_length=30)
     keyterms: list[str] = Field(default_factory=list, max_length=100)
     speech_targets: list[SpeechTarget] = Field(default_factory=list, max_length=30)
-    sound_targets: list[SoundTarget] = Field(default_factory=list, max_length=30)
+    sound_targets: list[SoundTarget] = Field(default_factory=list, max_length=1000)
+
+
+class WatchlistRecord(ContractModel):
+    """A persisted Watchlist target and its current listening state."""
+
+    id: str = Field(min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=500)
+    preset_sounds: list[str] = Field(default_factory=list, max_length=1000)
+    kind: Literal["flight", "name", "order", "any"] = "any"
+    enabled: bool = True
+    created_at: float = Field(ge=0)
+    expires_at: float | None = Field(default=None, ge=0)
+    intent: StructuredWatchIntent | None = None
 
 
 class TranscriptEvent(ContractModel):

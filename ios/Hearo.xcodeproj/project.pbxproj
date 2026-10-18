@@ -1,0 +1,374 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* HearoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* HearoApp.swift */; };
+		A10000000000000000000002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Models.swift */; };
+		A10000000000000000000003 /* HearoAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* HearoAPI.swift */; };
+		A10000000000000000000004 /* HearoAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* HearoAudioController.swift */; };
+		A10000000000000000000005 /* HearoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* HearoModel.swift */; };
+		A10000000000000000000006 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* ContentView.swift */; };
+		A10000000000000000000007 /* WatchAlertBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* WatchAlertBridge.swift */; };
+		A10000000000000000000008 /* HearoWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HearoWatchApp.swift */; };
+		A10000000000000000000009 /* WatchAlertStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* WatchAlertStore.swift */; };
+		A1000000000000000000000A /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* WatchContentView.swift */; };
+		A1000000000000000000000B /* Hearo Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* Hearo Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* HearoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HearoApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* HearoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HearoAPI.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* HearoAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HearoAudioController.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* HearoModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HearoModel.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000008 /* WatchAlertBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAlertBridge.swift; sourceTree = "<group>"; };
+		B10000000000000000000009 /* HearoWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HearoWatchApp.swift; sourceTree = "<group>"; };
+		B1000000000000000000000A /* WatchAlertStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAlertStore.swift; sourceTree = "<group>"; };
+		B1000000000000000000000B /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
+		C10000000000000000000001 /* Hearo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hearo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000002 /* Hearo Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Hearo Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000004 /* Hearo Watch Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000002 /* Hearo */,
+				E10000000000000000000004 /* HearoWatch */,
+				E10000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E10000000000000000000002 /* Hearo */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* HearoApp.swift */,
+				B10000000000000000000002 /* Models.swift */,
+				B10000000000000000000003 /* HearoAPI.swift */,
+				B10000000000000000000004 /* HearoAudioController.swift */,
+				B10000000000000000000005 /* HearoModel.swift */,
+				B10000000000000000000006 /* ContentView.swift */,
+				B10000000000000000000007 /* Info.plist */,
+				B10000000000000000000008 /* WatchAlertBridge.swift */,
+			);
+			path = Hearo;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000004 /* HearoWatch */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000009 /* HearoWatchApp.swift */,
+				B1000000000000000000000A /* WatchAlertStore.swift */,
+				B1000000000000000000000B /* WatchContentView.swift */,
+			);
+			path = HearoWatch;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C10000000000000000000001 /* Hearo.app */,
+				C10000000000000000000002 /* Hearo Watch App.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F10000000000000000000001 /* Hearo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = H10000000000000000000002 /* Build configuration list for PBXNativeTarget "Hearo" */;
+			buildPhases = (
+				D10000000000000000000002 /* Sources */,
+				D10000000000000000000001 /* Frameworks */,
+				D10000000000000000000003 /* Resources */,
+				D10000000000000000000007 /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				I10000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = Hearo;
+			productName = Hearo;
+			productReference = C10000000000000000000001 /* Hearo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F10000000000000000000002 /* Hearo Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = H10000000000000000000003 /* Build configuration list for PBXNativeTarget "Hearo Watch App" */;
+			buildPhases = (
+				D10000000000000000000005 /* Hearo Watch Sources */,
+				D10000000000000000000004 /* Hearo Watch Frameworks */,
+				D10000000000000000000006 /* Hearo Watch Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = "Hearo Watch App";
+			productName = "Hearo Watch App";
+			productReference = C10000000000000000000002 /* Hearo Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F10000000000000000000003 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					F10000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					F10000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = H10000000000000000000001 /* Build configuration list for PBXProject "Hearo" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E10000000000000000000001;
+			productRefGroup = E10000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F10000000000000000000001 /* Hearo */,
+				F10000000000000000000002 /* Hearo Watch App */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXContainerItemProxy section */
+		J10000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F10000000000000000000003 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F10000000000000000000002;
+			remoteInfo = "Hearo Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		I10000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F10000000000000000000002 /* Hearo Watch App */;
+			targetProxy = J10000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000006 /* Hearo Watch Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000007 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				A1000000000000000000000B /* Hearo Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D10000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* HearoApp.swift in Sources */,
+				A10000000000000000000002 /* Models.swift in Sources */,
+				A10000000000000000000003 /* HearoAPI.swift in Sources */,
+				A10000000000000000000004 /* HearoAudioController.swift in Sources */,
+				A10000000000000000000005 /* HearoModel.swift in Sources */,
+				A10000000000000000000006 /* ContentView.swift in Sources */,
+				A10000000000000000000007 /* WatchAlertBridge.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000005 /* Hearo Watch Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000008 /* HearoWatchApp.swift in Sources */,
+				A10000000000000000000009 /* WatchAlertStore.swift in Sources */,
+				A1000000000000000000000A /* WatchContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		G10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		G10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		G10000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8W5TKYD7F;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Hearo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hearo.app.proj;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		G10000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8W5TKYD7F;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Hearo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hearo.app.proj;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		G10000000000000000000005 /* Hearo Watch Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8W5TKYD7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Hearo;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.hearo.app.proj;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hearo.app.proj.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		G10000000000000000000006 /* Hearo Watch Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8W5TKYD7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Hearo;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.hearo.app.proj;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hearo.app.proj.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		H10000000000000000000001 /* Build configuration list for PBXProject "Hearo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G10000000000000000000001 /* Debug */,
+				G10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		H10000000000000000000002 /* Build configuration list for PBXNativeTarget "Hearo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G10000000000000000000003 /* Debug */,
+				G10000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		H10000000000000000000003 /* Build configuration list for PBXNativeTarget "Hearo Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G10000000000000000000005 /* Hearo Watch Debug */,
+				G10000000000000000000006 /* Hearo Watch Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F10000000000000000000003 /* Project object */;
+}

@@ -5,6 +5,7 @@ from typing import Any
 from .alerts import DEFAULT_DEDUPE_WINDOW_SECONDS
 from .models import (
     Alert,
+    AlertPreferences,
     DetectedSoundEvent,
     MatchResult,
     RestEventType,
@@ -13,6 +14,7 @@ from .models import (
     RestModeSession,
     StructuredWatchIntent,
     TranscriptEvent,
+    WatchlistRecord,
 )
 from .repositories import HearoRepository
 
@@ -75,6 +77,43 @@ def save_alert(alert: Alert) -> None:
 
 def list_alerts(limit: int = 100) -> list[Alert]:
     return _repository.list_alerts(limit)
+
+
+def clear_alerts() -> int:
+    return _repository.clear_alerts()
+
+
+def add_watchlist_item(
+    item_id: str,
+    text: str,
+    kind: str,
+    preset_sounds: list[str],
+    intent: dict[str, Any],
+    expires_at: float | None,
+) -> WatchlistRecord:
+    return _repository.add_watchlist_item(
+        item_id, text, kind, preset_sounds, intent, expires_at
+    )
+
+
+def list_watchlist_items() -> list[WatchlistRecord]:
+    return _repository.list_watchlist_items()
+
+
+def set_watchlist_item_enabled(item_id: str, enabled: bool) -> bool:
+    return _repository.set_watchlist_item_enabled(item_id, enabled)
+
+
+def delete_watchlist_item(item_id: str) -> bool:
+    return _repository.delete_watchlist_item(item_id)
+
+
+def get_alert_preferences() -> AlertPreferences:
+    return _repository.get_alert_preferences()
+
+
+def set_alert_preferences(preferences: AlertPreferences) -> AlertPreferences:
+    return _repository.set_alert_preferences(preferences)
 
 
 def start_rest_mode() -> RestModeSession:

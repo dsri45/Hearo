@@ -55,6 +55,7 @@ class RestSessionRow(Base):
     started_at: Mapped[float] = mapped_column(Float, nullable=False)
     ended_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     recap: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
@@ -74,3 +75,23 @@ class RestEventRow(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     important: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class WatchlistItemRow(Base):
+    __tablename__ = "watchlist_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="any")
+    preset_sounds: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    expires_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    structured_intent: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+
+class AlertPreferencesRow(Base):
+    __tablename__ = "alert_preferences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    preferences: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
