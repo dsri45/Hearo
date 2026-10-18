@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build and coverage output
+build/
+dist/
+htmlcov/
+.coverage
+
+# Xcode (the iOS team can refine this once the project exists)
+DerivedData/
+*.xcuserstate
+xcuserdata/
+

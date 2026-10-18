@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hearo Debug Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: #07111f;
+        color: #eaf2ff;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 15% 10%, #173a5f 0, transparent 32rem),
+          radial-gradient(circle at 90% 20%, #183d37 0, transparent 28rem),
+          #07111f;
+      }
+
+      main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
+      header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+      h1 { margin: 0; font-size: clamp(2rem, 7vw, 4.5rem); letter-spacing: -0.06em; }
+      h2 { margin: 0 0 14px; font-size: 1rem; color: #b8c8de; }
+      p { color: #9fb0c8; line-height: 1.6; }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid #2b4564;
+        border-radius: 999px;
+        background: #0d1b2b;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #f2b84b; }
+      .connected .dot { background: #43d69d; box-shadow: 0 0 12px #43d69d; }
+      .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 34px; }
+      .card { background: #0d1b2be8; border: 1px solid #203955; border-radius: 18px; padding: 22px; box-shadow: 0 20px 60px #0004; }
+      .wide { grid-column: 1 / -1; }
+
+      label { display: block; margin-bottom: 8px; color: #b8c8de; font-size: 0.9rem; }
+      input, textarea {
+        width: 100%;
+        border: 1px solid #31506f;
+        border-radius: 11px;
+        padding: 13px 14px;
+        background: #071421;
+        color: #f6f9ff;
+        font: inherit;
+        outline: none;
+      }
+      input:focus, textarea:focus { border-color: #60d7ba; box-shadow: 0 0 0 3px #60d7ba22; }
+      textarea { min-height: 105px; resize: vertical; }
+      button {
+        margin-top: 12px;
+        border: 0;
+        border-radius: 11px;
+        padding: 11px 16px;
+        background: #63dfbd;
+        color: #06231d;
+        font: inherit;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      button:hover { background: #82e9cc; }
+      button:disabled { opacity: 0.55; cursor: wait; }
+
+      .value { min-height: 1.5em; color: #f7fbff; word-break: break-word; }
+      .muted { color: #7f93ad; }
+      .result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .metric { padding: 14px; background: #071421; border-radius: 12px; }
+      .metric span { display: block; color: #7f93ad; font-size: 0.78rem; margin-bottom: 6px; }
+      .yes { color: #63dfbd; }
+      .no { color: #ff8b91; }
+      .log { display: grid; gap: 9px; max-height: 260px; overflow: auto; }
+      .log-item { padding: 12px; border-left: 3px solid #63dfbd; background: #071421; border-radius: 4px 10px 10px 4px; }
+      .error { color: #ff9ea4; }
+
+      @media (max-width: 720px) {
+        header { display: block; }
+        .status { margin-top: 16px; }
+        .grid { grid-template-columns: 1fr; }
+        .wide { grid-column: auto; }
+        .result { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Hearo</h1>
+          <p>Local Wait For… pipeline dashboard</p>
+        </div>
+        <div id="socket-status" class="status"><span class="dot"></span><span>Connecting</span></div>
+      </header>
+
+      <section class="grid">
+        <form id="watch-form" class="card">
+          <h2>1 · What are you waiting for?</h2>
+          <label for="watch-item">Watch Item</label>
+          <input id="watch-item" required maxlength="500" value="My coffee order number 47">
+          <button type="submit">Save Watch Item</button>
+        </form>
+
+        <form id="transcript-form" class="card">
+          <h2>2 · Simulate an announcement</h2>
+          <label for="transcript">Transcript</label>
+          <textarea id="transcript" required maxlength="10000">Order 47 is ready for pickup.</textarea>
+          <button type="submit">Evaluate Transcript</button>
+        </form>
+
+        <section class="card wide">
+          <h2>Current pipeline state</h2>
+          <div class="result">
+            <div class="metric"><span>WAITING FOR</span><div id="current-item" class="value muted">Not set</div></div>
+            <div class="metric"><span>MATCH</span><div id="match" class="value muted">No evaluation</div></div>
+            <div class="metric"><span>ALERT</span><div id="alert" class="value muted">None</div></div>
+          </div>
+          <p id="reason" class="muted">Save a Watch Item and submit a transcript.</p>
+        </section>
+
+        <section class="card wide">
+          <h2>Live WebSocket alerts</h2>
+          <div id="alert-log" class="log"><div class="muted">No alerts emitted yet.</div></div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const byId = (id) => document.getElementById(id);
+      const watchForm = byId("watch-form");
+      const transcriptForm = byId("transcript-form");
+      const socketStatus = byId("socket-status");
+      const alertLog = byId("alert-log");
+      let hasAlerts = false;
+
+      async function request(path, options = {}) {
+        const response = await fetch(path, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
+        return body;
+      }
+
+      function renderState(state) {
+        byId("current-item").textContent = state.watch_item || "Not set";
+        byId("current-item").className = state.watch_item ? "value" : "value muted";
+
+        const result = state.match_result;
+        byId("match").textContent = result ? (result.match ? `YES · ${Math.round(result.confidence * 100)}%` : "NO") : "No evaluation";
+        byId("match").className = result ? `value ${result.match ? "yes" : "no"}` : "value muted";
+
+        byId("alert").textContent = state.suppressed ? "Duplicate suppressed" : (state.alert ? `${state.alert.title} — ${state.alert.detail}` : "None");
+        byId("alert").className = state.alert ? "value yes" : "value muted";
+        byId("reason").textContent = result?.reason || "Save a Watch Item and submit a transcript.";
+      }
+
+      async function refreshState() {
+        try { renderState(await request("/debug/state")); }
+        catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
+      }
+
+      watchForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = watchForm.querySelector("button");
+        button.disabled = true;
+        try {
+          await request("/watch-item", { method: "POST", body: JSON.stringify({ text: byId("watch-item").value }) });
+          await refreshState();
+        } catch (error) { byId("reason").textContent = error.message; }
+        finally { button.disabled = false; }
+      });
+
+      transcriptForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = transcriptForm.querySelector("button");
+        button.disabled = true;
+        try {
+          const result = await request("/debug/transcript", { method: "POST", body: JSON.stringify({ text: byId("transcript").value }) });
+          renderState({ watch_item: result.watch_item, transcript: result.transcript, match_result: result.match_result, alert: result.alert, suppressed: result.suppressed });
+        } catch (error) { byId("reason").textContent = error.message; byId("reason").className = "error"; }
+        finally { button.disabled = false; }
+      });
+
+      function connectAlerts() {
+        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        const socket = new WebSocket(`${protocol}//${location.host}/ws/alerts`);
+
+        socket.addEventListener("open", () => {
+          socketStatus.classList.add("connected");
+          socketStatus.lastElementChild.textContent = "Live alerts connected";
+        });
+        socket.addEventListener("message", (event) => {
+          const alert = JSON.parse(event.data);
+          if (!hasAlerts) { alertLog.replaceChildren(); hasAlerts = true; }
+          const item = document.createElement("div");
+          item.className = "log-item";
+          item.textContent = `${alert.title} — ${alert.detail} (${Math.round(alert.confidence * 100)}%)`;
+          alertLog.prepend(item);
+        });
+        socket.addEventListener("close", () => {
+          socketStatus.classList.remove("connected");
+          socketStatus.lastElementChild.textContent = "Reconnecting";
+          window.setTimeout(connectAlerts, 1500);
+        });
+      }
+
+      refreshState();
+      connectAlerts();
+    </script>
+  </body>
+</html>

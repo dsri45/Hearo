@@ -1,0 +1,2 @@
+"""Hearo backend application package."""
+

@@ -1,0 +1,167 @@
+[
+  {
+    "name": "matching flight boarding",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 312 to Buffalo is now boarding at gate C12.",
+    "expected": true,
+    "event_type": "boarding"
+  },
+  {
+    "name": "wrong flight and destination",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 321 to Boston is now boarding.",
+    "expected": false
+  },
+  {
+    "name": "matching flight delay",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 312 service to Buffalo has been delayed twenty minutes.",
+    "expected": true,
+    "event_type": "delay"
+  },
+  {
+    "name": "right flight wrong destination",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 312 to Chicago is now boarding.",
+    "expected": false
+  },
+  {
+    "name": "flight event omits destination",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 312 has been delayed twenty minutes.",
+    "expected": true,
+    "event_type": "delay"
+  },
+  {
+    "name": "wrong flight right destination",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 321 to Buffalo is now boarding.",
+    "expected": false
+  },
+  {
+    "name": "matching gate change",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Flight 312 to Buffalo has moved to gate C12.",
+    "expected": true,
+    "event_type": "gate_change"
+  },
+  {
+    "name": "matching final call",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "This is the final call for Flight 312 to Buffalo.",
+    "expected": true,
+    "event_type": "final_call"
+  },
+  {
+    "name": "flight mention without event",
+    "watch_item": "Flight 312 to Buffalo",
+    "transcript": "Information about Flight 312 to Buffalo is available online.",
+    "expected": false
+  },
+  {
+    "name": "matching order ready",
+    "watch_item": "Order number 47",
+    "transcript": "Order 47 is ready for pickup.",
+    "expected": true,
+    "event_type": "ready"
+  },
+  {
+    "name": "transposed order number",
+    "watch_item": "Order number 47",
+    "transcript": "Order 74 is ready.",
+    "expected": false
+  },
+  {
+    "name": "similar order number",
+    "watch_item": "Order number 47",
+    "transcript": "Order 147 is ready for pickup.",
+    "expected": false
+  },
+  {
+    "name": "generic exact phrase",
+    "watch_item": "Raffle number 82",
+    "transcript": "Raffle number 82 has been called.",
+    "expected": true,
+    "event_type": "called"
+  },
+  {
+    "name": "generic near miss",
+    "watch_item": "Raffle number 82",
+    "transcript": "Raffle number 28 has been called.",
+    "expected": false
+  },
+  {
+    "name": "coffee order",
+    "watch_item": "My coffee order number 47",
+    "transcript": "Order 47 is ready for pickup.",
+    "expected": true,
+    "event_type": "ready"
+  },
+  {
+    "name": "coffee order number announcement",
+    "watch_item": "My coffee order number 47",
+    "transcript": "Order 47!",
+    "expected": true,
+    "event_type": "called"
+  },
+  {
+    "name": "isolated coffee order number",
+    "watch_item": "My coffee order number 47",
+    "transcript": "47!",
+    "expected": true,
+    "event_type": "called"
+  },
+  {
+    "name": "wrong short coffee order number",
+    "watch_item": "My coffee order number 47",
+    "transcript": "Order 74!",
+    "expected": false
+  },
+  {
+    "name": "train boarding",
+    "watch_item": "Train A215 to Seattle",
+    "transcript": "Train A215 to Seattle is now boarding at platform 4.",
+    "expected": true,
+    "event_type": "boarding"
+  },
+  {
+    "name": "train wrong identifier",
+    "watch_item": "Train A215 to Seattle",
+    "transcript": "Train A251 to Seattle is now boarding at platform 4.",
+    "expected": false
+  },
+  {
+    "name": "train wrong destination",
+    "watch_item": "Train A215 to Seattle",
+    "transcript": "Train A215 to Portland is now boarding at platform 4.",
+    "expected": false
+  },
+  {
+    "name": "appointment name",
+    "watch_item": "Appointment with Dr Patel",
+    "transcript": "Doctor Patel is ready to see the next patient.",
+    "expected": true,
+    "event_type": "ready"
+  },
+  {
+    "name": "wrong appointment name",
+    "watch_item": "Appointment with Dr Patel",
+    "transcript": "Doctor Park is ready to see the next patient.",
+    "expected": false
+  },
+  {
+    "name": "pickup by full name",
+    "watch_item": "Pickup for Dana Smith",
+    "transcript": "Dana Smith, please come to the pickup counter.",
+    "expected": true,
+    "event_type": "called"
+  },
+  {
+    "name": "prescription ready",
+    "watch_item": "Prescription for Dana Smith",
+    "transcript": "Dana Smith, your prescription is now ready for pickup.",
+    "expected": true,
+    "event_type": "ready"
+  }
+]
+
