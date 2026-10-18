@@ -1,28 +1,64 @@
-"""In-memory application state for the prototype backend."""
+"""Persistent application state plus ephemeral debug-pipeline state."""
 
-from .alerts import AlertDeduplicator
+from typing import Any
+
+from .alerts import DEFAULT_DEDUPE_WINDOW_SECONDS
 from .models import Alert, MatchResult, TranscriptEvent
+from .repositories import HearoRepository
 
 
-current_watch_item: str | None = None
+_repository = HearoRepository()
+
+# These fields exist only to render the latest dashboard evaluation. Raw
+# transcripts are intentionally not written to SQLite.
 latest_transcript: TranscriptEvent | None = None
 latest_match: MatchResult | None = None
 latest_alert: Alert | None = None
 latest_suppressed: bool = False
-alert_deduplicator = AlertDeduplicator()
 
 
-def set_watch_item(text: str) -> None:
-    """Replace the current Wait For item."""
+def configure_repository(repository: HearoRepository) -> None:
+    """Replace the repository, primarily to isolate automated tests."""
 
-    global current_watch_item
-    current_watch_item = text
+    global _repository
+    _repository = repository
+
+
+def set_watch_item(
+    text: str,
+    structured_intent: dict[str, Any] | None = None,
+) -> None:
+    """Persist the current Wait For item and its future structured intent."""
+
+    _repository.set_watch_item(text, structured_intent)
 
 
 def get_watch_item() -> str | None:
-    """Return the current Wait For item, if one has been configured."""
+    """Return the persisted Wait For item, if one has been configured."""
 
-    return current_watch_item
+    return _repository.get_watch_item()
+
+
+def get_structured_intent() -> dict[str, Any] | None:
+    return _repository.get_structured_intent()
+
+
+def is_duplicate_alert(alert: Alert) -> bool:
+    """Check persisted alert history for a recent duplicate."""
+
+    return _repository.was_alert_emitted_recently(
+        event_id=alert.id,
+        timestamp=alert.timestamp,
+        window_seconds=DEFAULT_DEDUPE_WINDOW_SECONDS,
+    )
+
+
+def save_alert(alert: Alert) -> None:
+    _repository.save_alert(alert)
+
+
+def list_alerts(limit: int = 100) -> list[Alert]:
+    return _repository.list_alerts(limit)
 
 
 def record_evaluation(
@@ -41,14 +77,11 @@ def record_evaluation(
 
 
 def reset() -> None:
-    """Clear process-local state, primarily for test isolation."""
+    """Clear the configured repository and ephemeral state for tests."""
 
-    global current_watch_item, latest_transcript, latest_match, latest_alert
-    global latest_suppressed
-    current_watch_item = None
+    global latest_transcript, latest_match, latest_alert, latest_suppressed
+    _repository.clear_all()
     latest_transcript = None
     latest_match = None
     latest_alert = None
     latest_suppressed = False
-    alert_deduplicator.clear()
-

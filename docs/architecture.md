@@ -178,3 +178,20 @@ passes duplicate suppression. This is also the endpoint the iPhone client can
 consume during the prototype. Nonmatches and suppressed duplicates do not
 produce WebSocket messages.
 
+## Persistence
+
+SQLite stores durable prototype state through a SQLAlchemy repository layer.
+The default database is `backend/data/hearo.db`; `HEARO_DATABASE_URL` can
+override its location. SQLite foreign keys, a five-second busy timeout, and WAL
+mode are enabled for the file-backed database.
+
+Persisted data includes:
+
+- the current Watch Item and future structured intent JSON;
+- listening-session metadata; and
+- emitted alerts, which also provide deduplication history across restarts.
+
+Raw audio, partial/final transcripts, live WebSocket connections, and the latest
+dashboard evaluation are not persisted. Tests replace the development
+repository with isolated in-memory or temporary-file SQLite databases.
+

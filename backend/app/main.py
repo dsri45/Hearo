@@ -118,9 +118,10 @@ async def evaluate_transcript(event: TranscriptEvent) -> TranscriptEvaluationRes
 
     if result.match:
         candidate = create_alert(result)
-        suppressed = state.alert_deduplicator.check_and_record(candidate)
+        suppressed = state.is_duplicate_alert(candidate)
         if not suppressed:
             emitted_alert = candidate
+            state.save_alert(emitted_alert)
             await alert_connections.broadcast(emitted_alert)
 
     state.record_evaluation(event, result, emitted_alert, suppressed)
@@ -142,7 +143,7 @@ def get_debug_state() -> DebugStateResponse:
     """Return the most recent pipeline evaluation for dashboard development."""
 
     return DebugStateResponse(
-        watch_item=state.current_watch_item,
+        watch_item=state.get_watch_item(),
         transcript=state.latest_transcript,
         match_result=state.latest_match,
         alert=state.latest_alert,

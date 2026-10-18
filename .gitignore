@@ -23,6 +23,11 @@ build/
 dist/
 htmlcov/
 .coverage
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
 # Xcode (the iOS team can refine this once the project exists)
 DerivedData/

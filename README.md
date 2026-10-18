@@ -30,6 +30,11 @@ backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload
 
 Then open `http://localhost:8000/docs` for the interactive API documentation.
 
+The backend automatically creates a local SQLite database at
+`backend/data/hearo.db`. The current Watch Item and emitted-alert history survive
+server restarts. Database files are ignored by Git. To use a different location,
+set `HEARO_DATABASE_URL` in `backend/.env`.
+
 For the pre-audio integration checkpoint, set a Watch Item with
 `POST /watch-item`, then submit announcement text to `POST /debug/transcript`.
 The response includes the match decision and any emitted alert. Repeating an
